@@ -23,6 +23,8 @@
 #include <QtDBus/QDBusInterface>
 #include <QtDBus/QDBusMessage>
 
+#include <unistd.h>
+
 #include <QtDebug>
 
 #include "gauge.h"
@@ -581,6 +583,7 @@ bool Qiq::runInput() {
     QMetaObject::Connection processDoneHandler;
     if (type != NoOut) {
         processDoneHandler = connect(process, &QProcess::finished, this, &Qiq::printOutput);
+        process->setChildProcessModifier([] {::setsid(); });
     }
     connect(process, &QProcess::finished, process, &QObject::deleteLater);
     if (type != NoOut) {
