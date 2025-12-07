@@ -383,6 +383,10 @@ void Qiq::filter(const QString needle, MatchType matchType) {
                 for (const QString &cat : cats) {
                     if ((vis = cat.contains(token, Qt::CaseInsensitive))) break;
                 }
+                const QStringList keys = idx.data(AppKeywords).toStringList();
+                for (const QString &key : keys) {
+                    if ((vis = key.contains(token, Qt::CaseInsensitive))) break;
+                }
                 if (!vis) break;
             }
             if (vis) {
