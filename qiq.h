@@ -22,7 +22,7 @@ protected:
     bool eventFilter(QObject *o, QEvent *e) override;
 private:
     enum MatchType { Begin = 0, Partial };
-    enum AppStuff { AppExec = Qt::UserRole + 1, AppComment, AppPath, AppNeedsTE, AppCategories };
+    enum AppStuff { AppExec = Qt::UserRole + 1, AppComment, AppPath, AppNeedsTE, AppCategories, AppKeywords };
     void adjustGeometry();
     void explicitlyComplete(const QString token);
     void filter(const QString needle, MatchType matchType);

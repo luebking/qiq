@@ -185,7 +185,7 @@ Qiq::Qiq() : QStackedWidget() {
             setCurrentWidget(m_list);
             connect(m_input, &QLineEdit::textEdited, this, &Qiq::filterInput, Qt::UniqueConnection);
         }
-        
+
         const QSize ts = m_input->fontMetrics().boundingRect(text).size();
         const int w = m_input->style()->sizeFromContents(QStyle::CT_LineEdit, nullptr, ts, m_input).width() + 8;
         m_input->setGeometry((width() - w)/2, (height() - m_input->height())/2, w, m_input->height());
@@ -194,6 +194,14 @@ Qiq::Qiq() : QStackedWidget() {
 }
 
 void Qiq::makeApplicationModel() {
+    const QString de_DE = QLocale::system().name();
+    const QString de = de_DE.split('_').first();
+    const QString name_de_DE = "Name[" + de_DE + "]";
+    const QString name_de = "Name[" + de + "]";
+    const QString comment_de_DE = "Comment[" + de_DE + "]";
+    const QString comment_de = "Comment[" + de + "]";
+    const QString keywords_de_DE = "Keywords[" + de_DE + "]";
+    const QString keywords_de = "Keywords[" + de + "]";
     m_applications = new QStandardItemModel;
     const QStringList paths = QStandardPaths::standardLocations(QStandardPaths::ApplicationsLocation);
     QSet<QString> augmented;
@@ -210,7 +218,10 @@ void Qiq::makeApplicationModel() {
             service.beginGroup("Desktop Entry");
             if (service.value("Type").toString() != "Application")
                 continue;
-            const QString name = service.value("Name").toString();
+#define LOCAL_AWARE(_V_, _D_) QString _V_ = service.value(_V_##_de_DE).toString(); \
+                              if (_V_.isEmpty()) _V_ = service.value(_V_##_de).toString(); \
+                              if (_V_.isEmpty()) _V_ = service.value(_D_).toString();
+            LOCAL_AWARE(name, "Name")
             if (name.isEmpty())
                 continue;
             // only type and name are mandatory, but if there's no executable, this isn't any useful
@@ -219,18 +230,24 @@ void Qiq::makeApplicationModel() {
                 continue;
             QStandardItem *item = new QStandardItem(QIcon::fromTheme(service.value("Icon").toString()), name);
             item->setData(exec, AppExec);
-            item->setData(service.value("Comment"), AppComment);
+            LOCAL_AWARE(comment, "Comment")
+            item->setData(comment, AppComment);
             item->setData(service.value("Path"), AppPath);
             item->setData(service.value("Terminal", false).toBool(), AppNeedsTE);
             item->setData(service.value("Categories").toString().split(';'), AppCategories);
+            LOCAL_AWARE(keywords, "Keywords")
+            item->setData(keywords.split(';'), AppKeywords);
+            // mimetype
             m_applications->appendRow(item);
         }
     }
 }
 
 void Qiq::adjustGeometry() {
-    if (currentWidget() != m_disp)
-        m_disp->setMinimumHeight(0);
+    if (currentWidget() != m_disp) {
+        m_disp->setMinimumSize(QSize(0,0));
+        setMinimumSize(QSize(0,0));
+    }
     if (currentWidget() == m_disp) {
         adjustSize();
     } else if (currentWidget() == m_status) {
@@ -320,12 +337,17 @@ void Qiq::explicitlyComplete(const QString token) {
     if (dir.exists() && (dir != QDir::current() || token.contains('/'))) {
         m_list->setModel(m_files);
         m_files->setRootPath(dir.absolutePath());
+        m_list->setCurrentIndex(QModelIndex());
         QModelIndex newRoot = m_files->index(m_files->rootPath());
         m_list->setRootIndex(newRoot);
         previousNeedle.clear();
-        m_files->fetchMore(newRoot);
         setCurrentWidget(m_list);
-        filter(fileInfo.fileName(), Begin);
+        // this can take a moment to feed the model
+        connect(m_files, &QFileSystemModel::directoryLoaded, this, [=](const QString &path) {
+                        qDebug() << path << m_files->rootPath();
+                        if (path == m_files->rootPath())
+                            filter(fileInfo.fileName(), Begin);
+                        }, Qt::SingleShotConnection);
     } else {
         m_list->setModel(m_bins);
         previousNeedle.clear();
@@ -346,6 +368,7 @@ void Qiq::filter(const QString needle, MatchType matchType) {
     int visible = 0;
     static int prevVisible = 0;
     int firstVisRow = m_lastVisibleRow = -1;
+    bool looksLikeCommand = false;
 
     if (m_list->model() == m_applications) {
         QStringList tokens = needle.split(whitespace);
@@ -369,6 +392,9 @@ void Qiq::filter(const QString needle, MatchType matchType) {
             }
             m_list->setRowHidden(i, !(vis && ++visible));
         }
+        // if the user seems to enter a command, unselect any entries and force reselection
+        if (m_list->currentIndex().isValid())
+           looksLikeCommand = m_input->text().contains('|') || (m_input->text().trimmed().contains(whitespace) && m_bins->stringList().contains(m_input->text().split(whitespace).first()));
     } else if (matchType == Begin) {
         for (int i = 0; i < rows; ++i) {
             const bool vis = m_list->model()->index(i, 0, m_list->rootIndex()).data().toString().startsWith(needle, Qt::CaseInsensitive);
@@ -402,15 +428,17 @@ void Qiq::filter(const QString needle, MatchType matchType) {
     }
     previousNeedle = needle;
     const int row = m_list->currentIndex().row();
-    if (visible > 0 && (row < 0 || m_list->isRowHidden(row))) {
+    if (looksLikeCommand) {
+        m_list->setCurrentIndex(QModelIndex());
+    } else if (visible > 0 && (row < 0 || m_list->isRowHidden(row))) {
         m_list->setCurrentIndex(m_list->model()->index(firstVisRow, 0, m_list->rootIndex()));
     } else if (!visible || (visible > 1 && shrink && prevVisible == 1)) {
         m_list->setCurrentIndex(QModelIndex());
     }
     prevVisible = visible;
-    if (visible == 1 && !shrink && !needle.isEmpty())
-        QTimer::singleShot(1, this, &Qiq::insertToken);
-//        QMetaObject::invokeMethod(this, &Qiq::insertToken); // needs to be delayed to trigger the textChanged after the actual edit
+    if (visible == 1 && !shrink && !needle.isEmpty()) {
+        QTimer::singleShot(1, this, &Qiq::insertToken); // needs to be delayed to trigger the textChanged after the actual edit
+    }
     adjustGeometry();
 }
 
@@ -431,6 +459,7 @@ void Qiq::filterInput() {
 //        qDebug() << "filesystem" << m_files->rootPath() << path;
         if (path != m_files->rootPath()) {
             m_files->setRootPath(path);
+            m_list->setCurrentIndex(QModelIndex());
             QModelIndex newRoot = m_files->index(m_files->rootPath());
             m_list->setRootIndex(newRoot);
             m_files->fetchMore(newRoot);
@@ -506,10 +535,12 @@ void Qiq::printOutput(int exitCode) {
     }
     if (!output.isEmpty()) {
         m_disp->setHtml(output);
-        setCurrentWidget(m_disp);
         m_disp->setMinimumWidth(qMax(m_defaultSize.width(), qMin(800, 12+qCeil(m_disp->document()->size().width()))));
         m_disp->setMinimumHeight(qMin(800, 12+qCeil(m_disp->document()->size().height())));
-        adjustGeometry();
+        if (currentWidget() != m_disp)
+            setCurrentWidget(m_disp);
+        else
+            adjustGeometry();
     }
     process->deleteLater();
 }
@@ -551,6 +582,7 @@ bool Qiq::runInput() {
     if (QFileInfo::exists(m_input->text())) {
         return QProcess::startDetached("xdg-open", QStringList() << m_input->text());
     }
+
     if (m_list->model() == m_applications) {
         QModelIndex entry = m_list->currentIndex();
         if (entry.isValid()) {
@@ -566,6 +598,9 @@ bool Qiq::runInput() {
             }
         }
     }
+
+    QProcess *process = new QProcess(this);
+
     enum Type { Normal = 0, NoOut, ForceOut, Math };
     Type type = Normal;
     QString command = m_input->text();
@@ -575,11 +610,23 @@ bool Qiq::runInput() {
     } else if (command.startsWith("?")) {
         type = ForceOut;
         command.remove(0,1);
-    } if (command.startsWith("!")) {
+    } else if (command.startsWith("!")) {
         type = NoOut;
         command.remove(0,1);
-    } 
-    QProcess *process = new QProcess(this);
+    } else if (command.contains('|')) {
+        QStringList components = command.split('|');
+        command = components.takeLast().trimmed();
+        QProcess *sink = process;
+        for (int i = components.size() - 1; i >= 0; --i) {
+            const QString component = components.at(i).trimmed();
+            QProcess *feeder = new QProcess(this);
+            connect(feeder, &QProcess::finished, feeder, &QObject::deleteLater);
+            feeder->setStandardOutputProcess(sink);
+            sink = feeder;
+            feeder->startCommand(component);
+        }
+    }
+
     QMetaObject::Connection processDoneHandler;
     if (type != NoOut) {
         processDoneHandler = connect(process, &QProcess::finished, this, &Qiq::printOutput);
