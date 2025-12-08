@@ -1,8 +1,10 @@
 #include <QDateTime>
 #include <QEnterEvent>
 #include <QFile>
+#include <QHash>
 #include <QPainter>
 #include <QProcess>
+#include <QRegularExpression>
 #include <QTimer>
 #include <QToolTip>
 #include "gauge.h"
@@ -23,11 +25,14 @@ Gauge::Gauge(QWidget *parent) : QWidget(parent) {
         parent->installEventFilter(this);
 }
 
-void Gauge::setSource(const QString source, int i) {
+void Gauge::setSource(QString source, int i) {
     if (source == "%clock%") {
         m_type = Clock;
         setRange(0, 0, 0);
-    } else {
+    } else if (source.startsWith("%mem%")) {
+        m_type = Memory;
+        source.remove(0, 5);
+    } else if (!source.isEmpty()) {
         m_type = Normal;
     }
     m_source[i] = source;
@@ -78,6 +83,48 @@ void Gauge::updateValues() {
         m_value[1] = time.minute();
         m_value[2] = time.hour();
         update();
+        return;
+    }
+    if (m_type == Memory) {
+        QFile f("/proc/meminfo");
+        if (f.exists() && f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            bool ok;
+            QString s;
+            QStringList pair;
+            QHash<QString,qulonglong> meminfo;
+            static QRegularExpression seps("[:[:space:]]+");
+            const QStringList lines = QString::fromLocal8Bit(f.readAll()).split('\n', Qt::SkipEmptyParts);
+            for (const QString &line : lines) {
+                pair = line.split(seps);
+                if (pair.size() < 2) {
+                    qDebug() << "unexpected meminfo!!!" << pair;
+                    continue;
+                }
+                const uint v = pair.at(1).toULongLong(&ok, 0); // VmallocTotal is gonna be huge…
+                if (!ok) {
+                    qDebug() << "unexpected meminfo, value is not a number!!!" << pair;
+                    continue;
+                }
+                meminfo.insert(pair.at(0), v);
+            }
+            for (int i = 0; i < 3; ++i) {
+                if (m_source[i].isEmpty())
+                    continue;
+                if (m_source[i] == "Zswapped") {
+                    setRange(0, meminfo.value("Zswap"), i);
+                    m_value[i] = meminfo.value("Zswapped");
+                } else if (m_source[i].startsWith("Swap")) {
+                    setRange(0, meminfo.value("SwapTotal"), i);
+                    m_value[i] = meminfo.value(m_source[i]);
+                } else {
+                    setRange(0, meminfo.value("MemTotal"), i);
+                    m_value[i] = meminfo.value(m_source[i]);
+                }
+            }
+            update();
+            return;
+        }
+        qDebug() << "unexpected meminfo, could not read /proc/meminfo!!!";
         return;
     }
     QMetaObject::Connection processDoneHandler[3];

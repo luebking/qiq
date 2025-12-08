@@ -12,7 +12,7 @@ public:
     void setPosition(Qt::Alignment a, int offsetX = 0, int offsetY = 0);
     void setRange(int min = 0, int max = 100, int index = 0);
     void setSize(int size);
-    void setSource(const QString source, int index = 0);
+    void setSource(QString source, int index = 0);
     void setToolTip(const QString tip, uint cacheMs = 1000);
 protected:
     void enterEvent(QEnterEvent *event) override;
@@ -27,7 +27,7 @@ protected:
     void showEvent(QShowEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
 private:
-    enum Type { Normal, Clock };
+    enum Type { Normal, Clock, Memory };
     void adjustGeometry();
     void readFromProcess();
     void readTipFromProcess();
