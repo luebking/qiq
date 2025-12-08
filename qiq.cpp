@@ -133,6 +133,7 @@ Qiq::Qiq() : QStackedWidget() {
 //    m_list->viewport()->setAutoFillBackground(false);
     m_lastVisibleRow = -1;
     m_list->setFocusPolicy(Qt::NoFocus);
+    m_list->viewport()->setFocusPolicy(Qt::NoFocus);
     m_list->setEditTriggers(QAbstractItemView::NoEditTriggers);
     connect(m_list, &QAbstractItemView::clicked, [=](const QModelIndex &idx) {
         m_list->setCurrentIndex(idx);
@@ -151,6 +152,7 @@ Qiq::Qiq() : QStackedWidget() {
     m_input->setAutoFillBackground(false);
     m_input->setAlignment(Qt::AlignCenter);
     m_input->setFocus();
+    m_input->hide();
     QPalette pal = m_input->palette();
     pal.setColor(m_input->backgroundRole(), QColor(0,0,0,192));
     pal.setColor(m_input->foregroundRole(), QColor(255,255,255));
@@ -291,8 +293,11 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
         if (key == Qt::Key_Escape) {
             if (m_input->isVisible()) {
                 m_input->clear();
-            } else if (currentWidget() == m_disp || m_list->model() == m_external) {
-                if (!m_wasVisble && m_list->model() == m_external)
+                m_input->hide(); // force
+            } else if (currentWidget() == m_disp) {
+                setCurrentWidget(m_status);
+            } else if (currentWidget() == m_list && m_list->model() == m_external) {
+                if (!m_wasVisble)
                     hide();
                 setCurrentWidget(m_status);
             } else { //QApplication::quit();
@@ -302,8 +307,10 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
             return true;
         }
         if (key == Qt::Key_Enter || key == Qt::Key_Return) {
-            if (runInput())
+            if (runInput()) {
                 m_input->clear();
+                m_input->hide(); // force
+            }
             return true;
         }
         return false;
@@ -560,6 +567,7 @@ public:
 };
 
 bool Qiq::runInput() {
+    m_input->setFocus();
     if (m_list->model() == m_external) {
         QModelIndex entry = m_list->currentIndex();
         if (entry.isValid()) {
