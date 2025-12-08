@@ -51,7 +51,7 @@ int main (int argc, char **argv)
             QList<QVariant> vl;
             for (const QString &s : parameters)
                 vl << s;
-            if (parameters.size() > 1 && parameters.at(1) == "%print%") {
+            if (parameters.size() > 1 && parameters.at(1).startsWith("%print")) {
                 QDBusReply<QString> reply = qiq.callWithArgumentList(QDBus::Block, "filter", vl);
                 if (reply.isValid())
                     printf("%s\n", reply.value().toLocal8Bit().data());
@@ -85,12 +85,14 @@ Qiq::Qiq() : QStackedWidget() {
         qApp->setStyleSheet(QString::fromLocal8Bit(sheet.readAll()));
     sheet.close();
 
+    QFont gaugeFont = QFont(settings.value("GaugeFont").toString());
     QStringList gauges = settings.value("Gauges").toStringList();
     m_defaultSize = QSize(settings.value("Width", 640).toUInt(), settings.value("Height", 320).toUInt());
     resize(m_defaultSize);
     for (const QString &gauge : gauges) {
         settings.beginGroup(gauge);
         Gauge *g = new Gauge(this/* m_status */);
+        g->setFont(gaugeFont);
         for (int i = 0; i < 3; ++i) {
             g->setSource(settings.value(QString("Source%1").arg(i+1)).toString(), i);
             g->setRange(settings.value(QString("Min%1").arg(i+1), 0).toInt(),
@@ -344,7 +346,6 @@ void Qiq::explicitlyComplete(const QString token) {
         setCurrentWidget(m_list);
         // this can take a moment to feed the model
         connect(m_files, &QFileSystemModel::directoryLoaded, this, [=](const QString &path) {
-                        qDebug() << path << m_files->rootPath();
                         if (path == m_files->rootPath())
                             filter(fileInfo.fileName(), Begin);
                         }, Qt::SingleShotConnection);
@@ -566,11 +567,27 @@ bool Qiq::runInput() {
             QString v = entry.data(AppExec).toString();
             if (v.isEmpty())
                 v = entry.data().toString();
-            if (m_externCmd == "%clip%") {
+            auto sed = [&](const QString cmd) {
+                const int s = cmd.size();
+                QString sedSep = m_externCmd.mid(s,1);
+                if (!sedSep.isEmpty()) {
+                    QStringList parts = m_externCmd.mid(s+1).split(sedSep);
+                    if (parts.size() > 0) {
+                        QRegularExpression reg(parts.at(0));
+                        if (parts.size() > 1)
+                            v.replace(reg, parts.at(1));
+                        else
+                            v.remove(reg);
+                    }
+                }
+            };
+            if (m_externCmd.startsWith("%clip")) {
+                sed("%clip");
                 QGuiApplication::clipboard()->setText(v, QClipboard::Clipboard);
                 QGuiApplication::clipboard()->setText(v, QClipboard::Selection);
                 ret = true;
-            } else if (m_externCmd == "%print%") {
+            } else if (m_externCmd.startsWith("%print")) {
+                sed("%print");
                 m_externalReply = v;
                 ret = true;
             } else {
@@ -711,7 +728,7 @@ QString Qiq::filterCustom(const QString source, const QString action, const QStr
     show();
     activateWindow();
     connect(m_input, &QLineEdit::textEdited, this, &Qiq::filterInput, Qt::UniqueConnection);
-    if (m_externCmd == "%print%") {
+    if (m_externCmd.startsWith("%print")) {
         m_externalReply = QString();
         QElapsedTimer time;
         while (m_externalReply.isNull()) {
