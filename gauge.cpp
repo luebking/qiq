@@ -194,6 +194,7 @@ void Gauge::setLabel(const QString label) {
         if (m_label.contains(QString("%mv%1").arg(i+1)))
             m_labelFlags |= 1<<(11+i);
     }
+    update();
 }
 
 void Gauge::adjustGeometry() {
@@ -354,16 +355,17 @@ void Gauge::paintEvent(QPaintEvent *event) {
         label = QDateTime::currentDateTime().toString(label);
     } else {
         for (int i = 0; i < 3; ++i) {
-            if (m_labelFlags & 1<<i)
-                m_label.replace(QString("%p%1").arg(i+1), QString::number(qRound(percent[i]*100)));
+            if (m_labelFlags & 1<<i) {
+                label.replace(QString("%p%1").arg(i+1), QString::number(qRound(percent[i]*100)));
+            }
             if (m_labelFlags & 1<<(2+i))
-                m_label.replace(QString("%v%1").arg(i+1), QString::number(m_value[i]));
+                label.replace(QString("%v%1").arg(i+1), QString::number(m_value[i]));
             if (m_labelFlags & 1<<(5+i))
-                m_label.replace(QString("%dv%1").arg(i+1), QString::number(m_value[i]/10));
+                label.replace(QString("%dv%1").arg(i+1), QString::number(m_value[i]/10));
             if (m_labelFlags & 1<<(8+i))
-                m_label.replace(QString("%cv%1").arg(i+1), QString::number(m_value[i]/100));
+                label.replace(QString("%cv%1").arg(i+1), QString::number(m_value[i]/100));
             if (m_labelFlags & 1<<(11+i))
-                m_label.replace(QString("%mv%1").arg(i+1), QString::number(m_value[i]/1000));
+                label.replace(QString("%mv%1").arg(i+1), QString::number(m_value[i]/1000));
         }
     }
     QSize ts = QFontMetrics(fnt).size(0, label);
