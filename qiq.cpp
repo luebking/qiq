@@ -124,7 +124,7 @@ Qiq::Qiq() : QStackedWidget() {
         g->setSize(settings.value("Size", 128).toInt());
         settings.endGroup();
     }
-    
+
     m_external = nullptr;
 
     addWidget(m_list = new QListView);
@@ -495,6 +495,8 @@ void Qiq::insertToken() {
         if (!path.endsWith("/"))
             path += "/";
         newToken = path + newToken;
+        if (newToken.contains(whitespace))
+            newToken = "\"" + newToken + "\"";
     }
     QString text = m_input->text();
     const int left = text.lastIndexOf(whitespace, m_input->cursorPosition() - 1) + 1;
