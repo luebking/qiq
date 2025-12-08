@@ -56,7 +56,7 @@ void Gauge::readFromProcess() {
         qDebug() << "invalid index" << i;
         return;
     }
-    const QStringList lines = QString::fromLocal8Bit(p->readAllStandardOutput()).split('\n');
+    const QStringList lines = QString::fromUtf8(p->readAllStandardOutput()).split('\n');
     bool ok;
     for (const QString &line : lines) {
         m_value[i] = line.toInt(&ok, 0);
@@ -355,7 +355,7 @@ void Gauge::paintEvent(QPaintEvent *event) {
     } else {
         for (int i = 0; i < 3; ++i) {
             if (m_labelFlags & 1<<i)
-                m_label.replace(QString("%p%1").arg(i+1), QString::number(percent[i]));
+                m_label.replace(QString("%p%1").arg(i+1), QString::number(qRound(percent[i]*100)));
             if (m_labelFlags & 1<<(2+i))
                 m_label.replace(QString("%v%1").arg(i+1), QString::number(m_value[i]));
             if (m_labelFlags & 1<<(5+i))
