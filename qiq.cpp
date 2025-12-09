@@ -124,6 +124,11 @@ Qiq::Qiq() : QStackedWidget() {
         g->setSize(settings.value("Size", 128).toInt());
         settings.endGroup();
     }
+    
+    settings.beginGroup("Aliases");
+    for (const QString &key : settings.childKeys())
+        m_aliases.insert(key, settings.value(key).toString());
+    settings.endGroup();
 
     m_external = nullptr;
 
@@ -676,11 +681,27 @@ bool Qiq::runInput() {
     }
     bool ret = false;
     if (type != Math) {
+        int sp = command.indexOf(whitespace);
+        if (sp < 0)
+            sp = command.size();
+        const QString bin = command.left(sp);
+        command.replace(0, sp, m_aliases.value(bin, bin));
+        QStringList tokens = command.split(whitespace);
+        for (const QString &token : tokens) {
+            if (token.startsWith('$')) {
+                QString env = qEnvironmentVariable(token.mid(1).toUtf8().data());
+                if (!env.isNull())
+                    command.replace(token, env);
+            }
+        }
+        
         if (type == NoOut) {
             QStringList args = QProcess::splitCommand(command);
             if (!args.isEmpty())
                 command = args.takeFirst();
             return QProcess::startDetached(command, args);
+        }
+        if (command == "less") { // internal pager
         }
         process->startCommand(command);
         ret = process->waitForStarted(250);

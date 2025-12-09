@@ -42,6 +42,7 @@ private:
     int m_lastVisibleRow;
     QString m_externCmd, m_externalReply;
     bool m_wasVisble;
+    QHash<QString,QString> m_aliases;
 };
 
 class DBusAdaptor : public QDBusAbstractAdaptor
