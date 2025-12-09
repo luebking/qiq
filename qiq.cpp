@@ -124,7 +124,7 @@ Qiq::Qiq() : QStackedWidget() {
         g->setSize(settings.value("Size", 128).toInt());
         settings.endGroup();
     }
-    
+
     settings.beginGroup("Aliases");
     for (const QString &key : settings.childKeys())
         m_aliases.insert(key, settings.value(key).toString());
@@ -151,7 +151,14 @@ Qiq::Qiq() : QStackedWidget() {
     m_disp->setFocusPolicy(Qt::NoFocus);
 //    m_disp->setFocusPolicy(Qt::ClickFocus);
     m_input = new QLineEdit(this);
-    connect(this, &QStackedWidget::currentChanged, [=]() { adjustGeometry(); m_input->raise(); m_input->setFocus(); });
+    connect(this, &QStackedWidget::currentChanged, [=]() {
+        adjustGeometry();
+        m_input->raise();
+        if (currentWidget() == m_list)
+            connect(m_input, &QLineEdit::textEdited, this, &Qiq::filterInput, Qt::UniqueConnection);
+        else
+            disconnect(m_input, &QLineEdit::textEdited, this, &Qiq::filterInput);
+    });
     m_input->setGeometry(0,0,0,m_input->height());
     m_input->setFrame(QFrame::NoFrame);
     m_input->setAutoFillBackground(false);
@@ -183,7 +190,6 @@ Qiq::Qiq() : QStackedWidget() {
             m_input->hide();
             if (currentWidget() == m_list && m_list->model() == m_external)
                 return;
-            disconnect(m_input, &QLineEdit::textEdited, this, &Qiq::filterInput);
             if (currentWidget() != m_disp)
                 setCurrentWidget(m_status);
             return;
@@ -192,7 +198,6 @@ Qiq::Qiq() : QStackedWidget() {
             m_list->setModel(m_applications);
             filterInput();
             setCurrentWidget(m_list);
-            connect(m_input, &QLineEdit::textEdited, this, &Qiq::filterInput, Qt::UniqueConnection);
         }
 
         const QSize ts = m_input->fontMetrics().boundingRect(text).size();
@@ -200,6 +205,11 @@ Qiq::Qiq() : QStackedWidget() {
         m_input->setGeometry((width() - w)/2, (height() - m_input->height())/2, w, m_input->height());
         m_input->show();
     });
+    m_list->setFocusProxy(m_input);
+    m_list->viewport()->setFocusProxy(m_input);
+    m_disp->setFocusProxy(m_input);
+    m_status->setFocusProxy(m_input);
+    setFocusProxy(m_input);
 }
 
 void Qiq::makeApplicationModel() {
@@ -287,7 +297,28 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
     if (o == m_input && e->type() == QEvent::KeyPress) {
         const int key = static_cast<QKeyEvent*>(e)->key();
         if (key == Qt::Key_Tab) {
-            explicitlyComplete(m_input->text().left(m_input->cursorPosition()).section(whitespace, -1, -1));
+            if (m_input->text().isEmpty()) {
+                if (currentWidget() == m_status) {
+                    m_list->setModel(m_applications);
+                    filter(QString(), Partial);
+                    setCurrentWidget(m_list);
+                } else if (currentWidget() == m_list) {
+                    if (m_list->model() == m_applications) {
+                        m_list->setModel(m_bins);
+                        filter(QString(), Begin);
+                    } else if (m_list->model() == m_bins) {
+                        m_list->setModel(m_external);
+                        filter(QString(), Partial);
+                    } else if (m_list->model() == m_external) {
+                        m_list->setModel(m_applications);
+                        setCurrentWidget(m_disp);
+                    }
+                } else if (currentWidget() == m_disp) {
+                    setCurrentWidget(m_status);
+                }
+            } else {
+                explicitlyComplete(m_input->text().left(m_input->cursorPosition()).section(whitespace, -1, -1));
+            }
             return true;
         }
         if (key == Qt::Key_Up || key == Qt::Key_Down) {
@@ -302,6 +333,7 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
             } else if (currentWidget() == m_disp) {
                 setCurrentWidget(m_status);
             } else if (currentWidget() == m_list && m_list->model() == m_external) {
+                m_externalReply = QString(""); // empt, not null!
                 if (!m_wasVisble)
                     hide();
                 setCurrentWidget(m_status);
@@ -368,8 +400,6 @@ void Qiq::explicitlyComplete(const QString token) {
         setCurrentWidget(m_list);
     }
     cycleResults = true;
-    m_input->raise();
-    connect(m_input, &QLineEdit::textEdited, this, &Qiq::filterInput, Qt::UniqueConnection);
 }
 
 void Qiq::filter(const QString needle, MatchType matchType) {
@@ -484,8 +514,6 @@ void Qiq::filterInput() {
         text = fileInfo.fileName();
     }
     else if (m_list->model() == m_bins && text.isEmpty()) {
-//        qDebug() << "disconnect filter";
-        disconnect(m_input, &QLineEdit::textEdited, this, &Qiq::filterInput);
         setCurrentWidget(m_status);
     }
     filter(text, Begin);
@@ -574,7 +602,6 @@ public:
 };
 
 bool Qiq::runInput() {
-    m_input->setFocus();
     if (m_list->model() == m_external) {
         QModelIndex entry = m_list->currentIndex();
         if (entry.isValid()) {
@@ -614,7 +641,6 @@ bool Qiq::runInput() {
         }
         return false;
     }
-    disconnect(m_input, &QLineEdit::textEdited, this, &Qiq::filterInput);
     if (QFileInfo::exists(m_input->text())) {
         return QProcess::startDetached("xdg-open", QStringList() << m_input->text());
     }
@@ -758,14 +784,13 @@ QString Qiq::filterCustom(const QString source, const QString action, const QStr
     m_wasVisble = isVisible();
     show();
     activateWindow();
-    connect(m_input, &QLineEdit::textEdited, this, &Qiq::filterInput, Qt::UniqueConnection);
     if (m_externCmd.startsWith("%print")) {
         m_externalReply = QString();
         QElapsedTimer time;
         while (m_externalReply.isNull()) {
             time.start();
             QApplication::processEvents();
-            QThread::msleep(33-time.elapsed()); // maitain 30fps but don't live-lock in processEvents()
+            QThread::msleep(33-time.elapsed()); // maintain 30fps but don't live-lock in processEvents()
         }
         return m_externalReply;
     }
