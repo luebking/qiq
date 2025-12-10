@@ -34,17 +34,47 @@ static QRegularExpression whitespace("[;&|[:space:]]+"); //[^\\\\]*
 
 int main (int argc, char **argv)
 {
-    QString command = "toggle";
+    QString command;
     QStringList parameters;
+    bool isDaemon = false;
     if (argc > 1) {
+        QStringList validCommands = QString("daemon\nfilter\nreconfigure\ntoggle").split('\n');
         command = QString::fromLocal8Bit(argv[1]);
+        if (command == "qiq_daemon") {
+            isDaemon = true;
+            command = QString();
+        }
+        if (!isDaemon && !validCommands.contains(command)) {
+            qWarning() << "No such command" << command << "\nValid commands:\n" << validCommands;
+            return 1;
+        }
         for (int i = 2; i < argc; ++i)
             parameters << QString::fromLocal8Bit(argv[i]);
     }
-    if (QDBusConnection::sessionBus().interface()->isServiceRegistered("org.qiq.qiq")) {
+    QDBusConnectionInterface *session = QDBusConnection::sessionBus().interface();
+    if (!isDaemon && command.isEmpty() && session->isServiceRegistered("org.qiq.qiq"))
+        command = "toggle";
+    if (!command.isEmpty()) {
+        if (!session->isServiceRegistered("org.qiq.qiq")) {
+            if (!QProcess::startDetached(argv[0], QStringList() << "qiq_daemon"))
+                return 1;
+            QElapsedTimer time;
+            time.start();
+            while (!session->isServiceRegistered("org.qiq.qiq")) {
+                if (time.elapsed() > 5000) {
+                    qWarning() << "Could not contact nor start daemon, aborting";
+                    return 1;
+                }
+                QThread::msleep(50);
+            }
+        }
         QDBusInterface qiq( "org.qiq.qiq", "/", "org.qiq.qiq" );
         if (command == "toggle") {
             qiq.call(QDBus::NoBlock, "toggle");
+            return 0;
+        }
+        if (command == "reconfigure") {
+            qiq.call(QDBus::NoBlock, "reconfigure");
             return 0;
         }
         if (command == "filter") {
@@ -60,13 +90,17 @@ int main (int argc, char **argv)
             }
             return 0;
         }
+        return 0;
     }
+
     QStyle *style = QStyleFactory::create("Fusion"); // take some cotrol to allow predictable style sheets
     QApplication::setStyle(style);
     QApplication a(argc, argv);
     QApplication::setStyle(style);
     QCoreApplication::setAttribute(Qt::AA_UseStyleSheetPropagationInWidgetStyles, true);
-    new Qiq;
+    Qiq *q = new Qiq;
+    if (isDaemon)
+        q->hide();
     return a.exec();
 }
 
@@ -78,62 +112,14 @@ Qiq::Qiq() : QStackedWidget() {
 //    qEnvironmentVariable(const char *varName, const QString &defaultValue)
     setWindowFlags(Qt::BypassWindowManagerHint);
     addWidget(m_status = new QWidget);
-    QSettings settings("qiq");
 
-    QFile sheet(QStandardPaths::locate(QStandardPaths::AppDataLocation, settings.value("Style", "default.css").toString()));
-    if (sheet.exists() && sheet.open(QIODevice::ReadOnly | QIODevice::Text))
-        qApp->setStyleSheet(QString::fromLocal8Bit(sheet.readAll()));
-    sheet.close();
-
-    QFont gaugeFont = QFont(settings.value("GaugeFont").toString());
-    QStringList gauges = settings.value("Gauges").toStringList();
-    m_defaultSize = QSize(settings.value("Width", 640).toUInt(), settings.value("Height", 320).toUInt());
-    resize(m_defaultSize);
-    for (const QString &gauge : gauges) {
-        settings.beginGroup(gauge);
-        Gauge *g = new Gauge(this/* m_status */);
-        g->setFont(gaugeFont);
-        for (int i = 0; i < 3; ++i) {
-            g->setSource(settings.value(QString("Source%1").arg(i+1)).toString(), i);
-            g->setRange(settings.value(QString("Min%1").arg(i+1), 0).toInt(),
-                        settings.value(QString("Max%1").arg(i+1), 100).toInt(), i);
-            g->setColors(settings.value(QString("ColorLow%1").arg(i+1)).value<QColor>(),
-                         settings.value(QString("ColorHigh%1").arg(i+1)).value<QColor>(), i);
-        }
-        g->setLabel(settings.value("Label").toString());
-        g->setInterval(settings.value("Interval", 1000).toUInt());
-        g->setToolTip(settings.value("Tooltip").toString(),
-                      settings.value("TooltipCacheTimeout", 1000).toUInt());
-        QString s = settings.value("Align", "Center").toString();
-        Qt::Alignment a;
-        if (s.contains("top", Qt::CaseInsensitive))
-            a |= Qt::AlignTop;
-        else if (s.contains("bottom", Qt::CaseInsensitive))
-            a |= Qt::AlignBottom;
-        if (s.contains("left", Qt::CaseInsensitive))
-            a |= Qt::AlignLeft;
-        else if (s.contains("right", Qt::CaseInsensitive))
-            a |= Qt::AlignRight;
-        if (s.contains("center", Qt::CaseInsensitive)) {
-            if (!(a & (Qt::AlignTop|Qt::AlignBottom)))
-                a |= Qt::AlignVCenter;
-            if (!(a & (Qt::AlignLeft|Qt::AlignRight)))
-                a |= Qt::AlignHCenter;
-        }
-        g->setPosition(a, settings.value("OffsetX", 0).toInt(), settings.value("OffsetY", 0).toInt());
-        g->setSize(settings.value("Size", 128).toInt());
-        settings.endGroup();
-    }
-
-    settings.beginGroup("Aliases");
-    for (const QString &key : settings.childKeys())
-        m_aliases.insert(key, settings.value(key).toString());
-    settings.endGroup();
+    reconfigure();
 
     m_external = nullptr;
 
     addWidget(m_list = new QListView);
     m_list->setFrameShape(QFrame::NoFrame);
+    m_list->setUniformItemSizes(true);
 //    m_list->setAutoFillBackground(false);
 //    m_list->viewport()->setAutoFillBackground(false);
     m_lastVisibleRow = -1;
@@ -210,6 +196,81 @@ Qiq::Qiq() : QStackedWidget() {
     m_disp->setFocusProxy(m_input);
     m_status->setFocusProxy(m_input);
     setFocusProxy(m_input);
+}
+
+void Qiq::reconfigure() {
+    QSettings settings("qiq");
+
+    QFile sheet(QStandardPaths::locate(QStandardPaths::AppDataLocation, settings.value("Style", "default.css").toString()));
+    if (sheet.exists() && sheet.open(QIODevice::ReadOnly | QIODevice::Text))
+        qApp->setStyleSheet(QString::fromLocal8Bit(sheet.readAll()));
+    sheet.close();
+
+    QFont gaugeFont = QFont(settings.value("GaugeFont").toString());
+    QStringList gauges = settings.value("Gauges").toStringList();
+    const QSize oldDefaultSize = m_defaultSize;
+    m_defaultSize = QSize(settings.value("Width", 640).toUInt(), settings.value("Height", 320).toUInt());
+    if (oldDefaultSize != m_defaultSize)
+        resize(m_defaultSize);
+    QList<Gauge*> oldGauges = m_status->findChildren<Gauge*>();
+    for (const QString &gauge : gauges) {
+        settings.beginGroup(gauge);
+        Gauge *g = m_status->findChild<Gauge*>(gauge);
+        if (g) {
+            oldGauges.removeAll(g);
+        } else {
+            g = new Gauge(m_status);
+            g->setObjectName(gauge);
+        }
+
+        g->setFont(gaugeFont);
+        for (int i = 0; i < 3; ++i) {
+            g->setSource(settings.value(QString("Source%1").arg(i+1)).toString(), i);
+            g->setRange(settings.value(QString("Min%1").arg(i+1), 0).toInt(),
+                        settings.value(QString("Max%1").arg(i+1), 100).toInt(), i);
+            g->setColors(settings.value(QString("ColorLow%1").arg(i+1)).value<QColor>(),
+                         settings.value(QString("ColorHigh%1").arg(i+1)).value<QColor>(), i);
+        }
+        g->setLabel(settings.value("Label").toString());
+        g->setInterval(settings.value("Interval", 1000).toUInt());
+        g->setToolTip(settings.value("Tooltip").toString(),
+                      settings.value("TooltipCacheTimeout", 1000).toUInt());
+        g->setMouseAction(settings.value("ActionLMB").toString(), Qt::LeftButton);
+        g->setMouseAction(settings.value("ActionRMB").toString(), Qt::RightButton);
+        g->setMouseAction(settings.value("ActionMMB").toString(), Qt::MiddleButton);
+        g->setWheelAction(settings.value("ActionWUp").toString(), Qt::UpArrow);
+        g->setWheelAction(settings.value("ActionWDown").toString(), Qt::DownArrow);
+        QString s = settings.value("Align", "Center").toString();
+        Qt::Alignment a;
+        if (s.contains("top", Qt::CaseInsensitive))
+            a |= Qt::AlignTop;
+        else if (s.contains("bottom", Qt::CaseInsensitive))
+            a |= Qt::AlignBottom;
+        if (s.contains("left", Qt::CaseInsensitive))
+            a |= Qt::AlignLeft;
+        else if (s.contains("right", Qt::CaseInsensitive))
+            a |= Qt::AlignRight;
+        if (s.contains("center", Qt::CaseInsensitive)) {
+            if (!(a & (Qt::AlignTop|Qt::AlignBottom)))
+                a |= Qt::AlignVCenter;
+            if (!(a & (Qt::AlignLeft|Qt::AlignRight)))
+                a |= Qt::AlignHCenter;
+        }
+        g->setPosition(a, settings.value("OffsetX", 0).toInt(), settings.value("OffsetY", 0).toInt());
+        g->setSize(settings.value("Size", 128).toInt());
+        settings.endGroup();
+    }
+
+    for (Gauge *og : oldGauges)
+        og->deleteLater();
+
+    m_aliases.clear();
+    settings.beginGroup("Aliases");
+    for (const QString &key : settings.childKeys())
+        m_aliases.insert(key, settings.value(key).toString());
+    settings.endGroup();
+    if (oldDefaultSize != m_defaultSize)
+        QMetaObject::invokeMethod(this, &Qiq::adjustGeometry, Qt::QueuedConnection);
 }
 
 void Qiq::makeApplicationModel() {

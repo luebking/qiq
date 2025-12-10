@@ -16,6 +16,7 @@ class Qiq : public QStackedWidget {
 public:
     Qiq();
     QString filterCustom(const QString source, const QString action = QString(), const QString fieldSeparator = QString());
+    void reconfigure();
     void toggle();
 protected:
     void enterEvent(QEnterEvent *ee) override;
@@ -56,6 +57,7 @@ public slots:
         return qiq->filterCustom(source, action, fieldSeparator);
     }
     Q_NOREPLY void toggle() { qiq->toggle(); }
+    Q_NOREPLY void reconfigure() { qiq->reconfigure(); }
 private:
     Qiq *qiq;
 };

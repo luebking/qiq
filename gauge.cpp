@@ -267,11 +267,26 @@ void Gauge::readTipFromProcess() {
         QToolTip::showText(QCursor::pos(), m_tooltip, this, {}, 60000);
 }
 
+void Gauge::setMouseAction(QString action, Qt::MouseButton btn) {
+    if (action.isEmpty())
+        m_mouseActions.remove(btn);
+    else
+        m_mouseActions.insert(btn, action);
+}
+
+void Gauge::setWheelAction(QString action, Qt::ArrowType dir) {
+    if (dir < 1 || dir > 4)
+        return;
+    m_wheelAction[dir-1] = action;
+}
+
 void Gauge::enterEvent(QEnterEvent *event) {
     QWidget::enterEvent(event);
     if (QDateTime::currentMSecsSinceEpoch() - m_lastTipDate < m_tipCache) {
-        QToolTip::showText(event->globalPos(), m_tooltip, this, {}, 60000);
+        QToolTip::showText(event->globalPosition().toPoint(), m_tooltip, this, {}, 60000);
     } else {
+        if (m_tooltipSource.isEmpty())
+            return;
         QFile f(m_tooltipSource);
         if (f.exists()) {
             if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -281,7 +296,7 @@ void Gauge::enterEvent(QEnterEvent *event) {
                 return;
             }
             m_lastTipDate = QDateTime::currentMSecsSinceEpoch();
-            QToolTip::showText(event->globalPos(), m_tooltip, this, {}, 60000);
+            QToolTip::showText(event->globalPosition().toPoint(), m_tooltip, this, {}, 60000);
         } else {
             QProcess *p = new QProcess(this);
             QMetaObject::Connection processDoneHandler = connect (p, &QProcess::finished, this, &Gauge::readTipFromProcess);
@@ -297,7 +312,7 @@ void Gauge::enterEvent(QEnterEvent *event) {
                 p->deleteLater();
                 m_tooltip = m_tooltipSource;
                 m_lastTipDate = QDateTime::currentMSecsSinceEpoch();
-                QToolTip::showText(event->globalPos(), m_tooltip, this, {}, 60000);
+                QToolTip::showText(event->globalPosition().toPoint(), m_tooltip, this, {}, 60000);
             }
         }
     }
@@ -307,7 +322,7 @@ void Gauge::leaveEvent(QEvent *event) {
     QToolTip::hideText();
 }
 
-void Gauge::paintEvent(QPaintEvent *event) {
+void Gauge::paintEvent(QPaintEvent *) {
     double percent[3] = {0,0,0};
     int s = qMin(width(), height());
     QPen pen;
@@ -344,7 +359,10 @@ void Gauge::paintEvent(QPaintEvent *event) {
         c.setAlpha(255);
         pen.setColor(c);
         p.setPen(pen);
-        p.drawArc(r, 90<<4, -5760.0*percent[i]);
+        if (percent[i] > 0.99) // avoid butt-on-butt stuff
+            p.drawEllipse(r);
+        else
+            p.drawArc(r, 90<<4, -5760.0*percent[i]);
         const int pw = pen.width()*1.2;
         r.adjust(pw,pw,-pw,-pw);
     }
@@ -375,27 +393,56 @@ void Gauge::paintEvent(QPaintEvent *event) {
     p.setFont(fnt);
     p.drawText(r, Qt::AlignCenter, label);
 }
-//    void resizeEvent(QResizeEvent *event) override;
 
 void Gauge::showEvent(QShowEvent *event) {
     if (m_dirty)
         updateValues();
     QWidget::showEvent(event);
 }
-void Gauge::hideEvent(QHideEvent *event) {
-//    m_timer.stop();
-    QWidget::hideEvent(event);
-}
 
 void Gauge::mouseDoubleClickEvent(QMouseEvent *event) {
+    return;
+    QString command = m_mouseActions.value(event->button());
+    if (command.isEmpty())
+        return;
+    QStringList args = QProcess::splitCommand(command);
+    if (!args.isEmpty())
+        command = args.takeFirst();
+    QProcess::startDetached(command, args);
 }
 
-void Gauge::mousePressEvent(QMouseEvent *event) {
-}
 
 void Gauge::mouseReleaseEvent(QMouseEvent *event) {
+    QString command = m_mouseActions.value(event->button());
+    if (command.isEmpty())
+        return;
+    QStringList args = QProcess::splitCommand(command);
+    if (!args.isEmpty())
+        command = args.takeFirst();
+    QProcess::startDetached(command, args);
 }
 
 void Gauge::wheelEvent(QWheelEvent *event) {
-    updateValues();
+    Qt::ArrowType dir = Qt::NoArrow;
+    QPoint d = event->angleDelta();
+    if (event->inverted())
+        d = -d;
+    if (d.y() > 0)
+        dir = Qt::UpArrow;
+    else if (d.y() < 0)
+        dir = Qt::DownArrow;
+    else if (d.x() > 0)
+        dir = Qt::LeftArrow;
+    else if (d.y() < 0)
+        dir = Qt::RightArrow;
+    if (dir == Qt::NoArrow)
+        return;
+    QString command = m_wheelAction[dir-1];
+    if (command.isEmpty())
+        return;
+    QStringList args = QProcess::splitCommand(command);
+    if (!args.isEmpty())
+        command = args.takeFirst();
+    QProcess::startDetached(command, args);
+//    updateValues();
 }
