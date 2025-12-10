@@ -111,13 +111,16 @@ void Gauge::updateValues() {
                 if (m_source[i].isEmpty())
                     continue;
                 if (m_source[i] == "Zswapped") {
-                    setRange(0, meminfo.value("Zswap"), i);
+                    m_range[i][0] = 0;
+                    m_range[i][1] = meminfo.value("Zswap");
                     m_value[i] = meminfo.value("Zswapped");
                 } else if (m_source[i].startsWith("Swap")) {
-                    setRange(0, meminfo.value("SwapTotal"), i);
+                    m_range[i][0] = 0;
+                    m_range[i][1] = meminfo.value("SwapTotal");
                     m_value[i] = meminfo.value(m_source[i]);
                 } else {
-                    setRange(0, meminfo.value("MemTotal"), i);
+                    m_range[i][0] = 0;
+                    m_range[i][1] = meminfo.value("MemTotal");
                     m_value[i] = meminfo.value(m_source[i]);
                 }
             }
@@ -240,7 +243,7 @@ void Gauge::setRange(int min, int max, int i) {
         return;
     }
     m_range[i][0] = min; m_range[i][1] = max;
-    update();
+    updateValues();
 }
 
 void Gauge::setColors(const QColor low, const QColor high, int i) {
