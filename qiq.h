@@ -44,6 +44,7 @@ private:
     QString m_externCmd, m_externalReply;
     bool m_wasVisble;
     QHash<QString,QString> m_aliases;
+    QString m_aha, m_qalc;
 };
 
 class DBusAdaptor : public QDBusAbstractAdaptor

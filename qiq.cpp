@@ -206,6 +206,9 @@ void Qiq::reconfigure() {
         qApp->setStyleSheet(QString::fromLocal8Bit(sheet.readAll()));
     sheet.close();
 
+    m_aha = settings.value("AHA").toString();
+    m_qalc = settings.value("CALC").toString();
+
     QFont gaugeFont = QFont(settings.value("GaugeFont").toString());
     QStringList gauges = settings.value("Gauges").toStringList();
     const QSize oldDefaultSize = m_defaultSize;
@@ -630,13 +633,17 @@ void Qiq::printOutput(int exitCode) {
         } else if (stdout.contains("<html>")) {
             output += QString::fromLocal8Bit(stdout);
         } else {
-            QProcess aha;
-            aha.startCommand("aha -x -n");
-            if (aha.waitForStarted(250)) {
-                aha.write(stdout);
-                aha.closeWriteChannel();
-                if (aha.waitForFinished(250))
-                    stdout = aha.readAllStandardOutput();
+            if (m_aha.isNull() && m_bins->stringList().contains("aha"))
+                m_aha = "aha -x -n";
+            if (!m_aha.isEmpty()) {
+                QProcess aha;
+                aha.startCommand(m_aha);
+                if (aha.waitForStarted(250)) {
+                    aha.write(stdout);
+                    aha.closeWriteChannel();
+                    if (aha.waitForFinished(250))
+                        stdout = aha.readAllStandardOutput();
+                }
             }
             output += "<pre>" + QString::fromLocal8Bit(stdout) + "</pre>";
         }
@@ -797,13 +804,24 @@ bool Qiq::runInput() {
         process->startCommand(command);
         ret = process->waitForStarted(250);
     }
+
+    // last resort: is this some math?
     if (!ret) {
-        process->startCommand("qalc -f -");
-        ret = process->waitForStarted(250);
-        if (ret) {
-            process->setProperty("qiq_type", "math");
-            process->write(command.toLocal8Bit());
-            process->closeWriteChannel();
+        if (m_qalc.isNull()) {
+            if (m_bins->stringList().contains("qalc"))
+                m_qalc = "qalc -f -";
+            else if (m_bins->stringList().contains("bc"))
+                m_qalc = "bc -ilq";
+        }
+        if (!m_qalc.isEmpty()) {
+            process->startCommand(m_qalc);
+            ret = process->waitForStarted(250);
+            qDebug() << m_qalc << ret;
+            if (ret) {
+                process->setProperty("qiq_type", "math");
+                process->write(command.toLocal8Bit());
+                process->closeWriteChannel();
+            }
         }
     }
     return ret;
