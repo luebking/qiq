@@ -663,6 +663,7 @@ public:
 };
 
 bool Qiq::runInput() {
+    // filter from custom list
     if (m_list->model() == m_external) {
         QModelIndex entry = m_list->currentIndex();
         if (entry.isValid()) {
@@ -702,10 +703,13 @@ bool Qiq::runInput() {
         }
         return false;
     }
+
+    // open file
     if (QFileInfo::exists(m_input->text())) {
         return QProcess::startDetached("xdg-open", QStringList() << m_input->text());
     }
 
+    // application list
     if (m_list->model() == m_applications) {
         QModelIndex entry = m_list->currentIndex();
         if (entry.isValid()) {
@@ -722,8 +726,8 @@ bool Qiq::runInput() {
         }
     }
 
+    // custom command
     QProcess *process = new QProcess(this);
-
     enum Type { Normal = 0, NoOut, ForceOut, Math };
     Type type = Normal;
     QString command = m_input->text();
@@ -842,6 +846,8 @@ QString Qiq::filterCustom(const QString source, const QString action, const QStr
     m_input->clear();
     m_list->setModel(m_external);
     setCurrentWidget(m_list);
+    filter(QString(), Partial);
+//    ajdustGeometry();
     m_wasVisble = isVisible();
     show();
     activateWindow();
