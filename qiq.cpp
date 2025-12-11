@@ -168,6 +168,7 @@ Qiq::Qiq() : QStackedWidget() {
     m_bins = new QStringListModel(binaries);
     m_files = new QFileSystemModel(this);
     m_files->setIconProvider(new QFileIconProvider);
+    m_cmdHistory = new QStringListModel(this);
     show();
     adjustGeometry();
     activateWindow();
@@ -386,12 +387,34 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
             return true;
         }
         if (key == Qt::Key_Up || key == Qt::Key_Down) {
-            QApplication::sendEvent(currentWidget(), e);
-            insertToken();
+            if (currentWidget() == m_list) {
+                QApplication::sendEvent(currentWidget(), e);
+                insertToken();
+            } else {
+                int idx = m_currentHistoryIndex;
+                if (idx < 0) {
+                    m_inputBuffer = m_input->text();
+                    idx = m_history.size();
+                }
+                if (key == Qt::Key_Up)
+                    --idx;
+                else
+                    ++idx;
+                if (idx >= m_history.size()) {
+                    m_currentHistoryIndex = -1;
+                    m_input->setText(m_inputBuffer);
+                } else if (idx > -1) {
+                    m_currentHistoryIndex = idx;
+                    m_input->setText(m_history.at(idx));
+                }
+            }
             return true;
         }
         if (key == Qt::Key_Escape) {
-            if (m_input->isVisible()) {
+            if (currentWidget() == m_list && m_list->model() == m_cmdHistory) {
+                m_list->setCurrentIndex(QModelIndex());
+                runInput();
+            } else if (m_input->isVisible()) {
                 m_input->clear();
                 m_input->hide(); // force
             } else if (currentWidget() == m_disp) {
@@ -413,6 +436,12 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
                 m_input->hide(); // force
             }
             return true;
+        }
+        if (key == Qt::Key_R && (static_cast<QKeyEvent*>(e)->modifiers() & Qt::ControlModifier)) {
+            m_inputBuffer = m_input->text();
+            m_cmdHistory->setStringList(m_history);
+            m_list->setModel(m_cmdHistory);
+            setCurrentWidget(m_list);
         }
         return false;
     }
@@ -554,7 +583,7 @@ void Qiq::filter(const QString needle, MatchType matchType) {
 }
 
 void Qiq::filterInput() {
-    if (m_list->model() == m_applications || m_list->model() == m_external)
+    if (m_list->model() == m_applications || m_list->model() == m_external || m_list->model() == m_cmdHistory)
         return filter(m_input->text(), Partial);
 
     QString text = m_input->text();
@@ -594,6 +623,9 @@ void Qiq::insertToken() {
         newToken = path + newToken;
         if (newToken.contains(whitespace))
             newToken = "\"" + newToken + "\"";
+    } else if (m_list->model() == m_cmdHistory) {
+        m_input->setText(newToken);
+        return;
     }
     QString text = m_input->text();
     const int left = text.lastIndexOf(whitespace, m_input->cursorPosition() - 1) + 1;
@@ -602,8 +634,22 @@ void Qiq::insertToken() {
         right = text.length();
     text.replace(left, right - left, newToken);
     m_input->setText(text);
-    m_input->setSelection(right, left + newToken.size() - right);
+    if (text.length() > right)
+        m_input->setSelection(right, left + newToken.size() - right);
 //    m_input->setCursorPosition(left + newToken.size());
+}
+
+bool mightBeRichText(const QString &text) {
+    QString sample = text.left(512);
+    if (sample.contains("<html>", Qt::CaseInsensitive))
+        return true;
+    if (sample.contains("<!DOCTYPE HTML<html>", Qt::CaseInsensitive))
+        return true;
+    if (sample.contains("<!DOCTYPE HTML<html>", Qt::CaseInsensitive))
+        return true;
+    if (sample.contains("<!--"))
+        return true;
+    return Qt::mightBeRichText(sample.remove('\n'));
 }
 
 void Qiq::printOutput(int exitCode) {
@@ -630,12 +676,12 @@ void Qiq::printOutput(int exitCode) {
     if (!stdout.isEmpty()) {
         if (process->property("qiq_type").toString() == "math") {
             output += "<h1 align=center>" + QString::fromLocal8Bit(stdout) + "</h1>";
-        } else if (stdout.contains("<html>")) {
+        } else if (mightBeRichText(stdout)) {
             output += QString::fromLocal8Bit(stdout);
         } else {
             if (m_aha.isNull() && m_bins->stringList().contains("aha"))
                 m_aha = "aha -x -n";
-            if (!m_aha.isEmpty()) {
+            if (!m_aha.isEmpty() && stdout.contains("\e[")) {
                 QProcess aha;
                 aha.startCommand(m_aha);
                 if (aha.waitForStarted(250)) {
@@ -709,6 +755,18 @@ bool Qiq::runInput() {
             return ret;
         }
         return false;
+    }
+
+    if (m_list->model() == m_cmdHistory) {
+        QModelIndex entry = m_list->currentIndex();
+        if (entry.isValid())
+            m_input->setText(entry.data().toString());
+        else
+            m_input->setText(m_inputBuffer);
+        m_list->setModel(m_bins);
+        setCurrentWidget(m_status);
+        m_cmdHistory->setStringList(QStringList());
+        return false; // SIC! we don't want the input to be accepted, just changed
     }
 
     // open file
@@ -797,12 +855,19 @@ bool Qiq::runInput() {
             QStringList args = QProcess::splitCommand(command);
             if (!args.isEmpty())
                 command = args.takeFirst();
-            return QProcess::startDetached(command, args);
+            ret = QProcess::startDetached(command, args);
+        } else {
+            process->startCommand(command);
+            ret = process->waitForStarted(250);
         }
-        if (command == "less") { // internal pager
+        if (ret) {
+            m_history.removeAll(m_input->text());
+            m_history.append(m_input->text());
+            if (m_history.size() > 1000)
+                m_history.removeFirst();
+            m_currentHistoryIndex = -1;
+            return true;
         }
-        process->startCommand(command);
-        ret = process->waitForStarted(250);
     }
 
     // last resort: is this some math?
@@ -886,9 +951,11 @@ void Qiq::toggle() {
     if (!isVisible()) {
         show();
         activateWindow();
+        raise();
     } else if (isActiveWindow()) {
         hide();
     } else {
         activateWindow();
+        raise();
     }
 }

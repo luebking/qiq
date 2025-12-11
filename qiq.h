@@ -37,7 +37,7 @@ private:
     QLineEdit *m_input;
     QWidget *m_status;
     QStandardItemModel *m_applications, *m_external;
-    QStringListModel *m_bins;
+    QStringListModel *m_bins, *m_cmdHistory;
     QFileSystemModel *m_files;
     QSize m_defaultSize;
     int m_lastVisibleRow;
@@ -45,6 +45,9 @@ private:
     bool m_wasVisble;
     QHash<QString,QString> m_aliases;
     QString m_aha, m_qalc;
+    QStringList m_history;
+    int m_currentHistoryIndex;
+    QString m_inputBuffer;
 };
 
 class DBusAdaptor : public QDBusAbstractAdaptor
