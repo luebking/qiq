@@ -672,10 +672,14 @@ void Qiq::printOutput(int exitCode) {
     } else {
         m_disp->setTextColor(m_disp->palette().color(m_disp->foregroundRole()));
     }
+    bool showAsList = false;
     QByteArray stdout = process->readAllStandardOutput();
     if (!stdout.isEmpty()) {
         if (process->property("qiq_type").toString() == "math") {
             output += "<h1 align=center>" + QString::fromLocal8Bit(stdout) + "</h1>";
+        } else if (process->property("qiq_type").toString() == "list") {
+            showAsList = true;
+            output = stdout;
         } else if (mightBeRichText(stdout)) {
             output += QString::fromLocal8Bit(stdout);
         } else {
@@ -694,14 +698,31 @@ void Qiq::printOutput(int exitCode) {
             output += "<pre>" + QString::fromLocal8Bit(stdout) + "</pre>";
         }
     }
+
     if (!output.isEmpty()) {
-        m_disp->setHtml(output);
-        m_disp->setMinimumWidth(qMax(m_defaultSize.width(), qMin(800, 12+qCeil(m_disp->document()->size().width()))));
-        m_disp->setMinimumHeight(qMin(800, 12+qCeil(m_disp->document()->size().height())));
-        if (currentWidget() != m_disp)
-            setCurrentWidget(m_disp);
-        else
-            adjustGeometry();
+        if (showAsList) {
+            m_externCmd = "_qiq";
+            if (!m_external)
+                m_external = new QStandardItemModel(this);
+            m_external->clear();
+            const QStringList lines = output.split('\n');
+            for (const QString &l : lines)
+                m_external->appendRow(new QStandardItem(l));
+            m_list->setModel(m_external);
+            filter(QString(), Partial);
+            if (currentWidget() != m_list)
+                setCurrentWidget(m_list);
+            else
+                adjustGeometry();
+        } else {
+            m_disp->setHtml(output);
+            m_disp->setMinimumWidth(qMax(m_defaultSize.width(), qMin(800, 12+qCeil(m_disp->document()->size().width()))));
+            m_disp->setMinimumHeight(qMin(800, 12+qCeil(m_disp->document()->size().height())));
+            if (currentWidget() != m_disp)
+                setCurrentWidget(m_disp);
+            else
+                adjustGeometry();
+        }
     }
     process->deleteLater();
 }
@@ -717,7 +738,7 @@ public:
 
 bool Qiq::runInput() {
     // filter from custom list
-    if (m_list->model() == m_external) {
+    if (m_list->model() == m_external && m_externCmd != "_qiq") {
         QModelIndex entry = m_list->currentIndex();
         if (entry.isValid()) {
             bool ret = false;
@@ -729,10 +750,10 @@ bool Qiq::runInput() {
                 QString sedSep = m_externCmd.mid(s,1);
                 if (!sedSep.isEmpty()) {
                     QStringList parts = m_externCmd.mid(s+1).split(sedSep);
-                    if (parts.size() > 0) {
-                        QRegularExpression reg(parts.at(0));
-                        if (parts.size() > 1)
-                            v.replace(reg, parts.at(1));
+                    for (int i = 0; i < parts.size(); i+=2) {
+                        QRegularExpression reg(parts.at(i));
+                        if (parts.size() > i+1)
+                            v.replace(reg, parts.at(i+1));
                         else
                             v.remove(reg);
                     }
@@ -769,9 +790,19 @@ bool Qiq::runInput() {
         return false; // SIC! we don't want the input to be accepted, just changed
     }
 
+    QString command = m_input->text();
+    static QRegularExpression hometilde("(^|\\W)~(/|\\W|$)");
+    command.replace(hometilde, "\\1" + QDir::homePath() + "\\2");
+
+    if (command.isEmpty()) {
+        QModelIndex entry = m_list->currentIndex();
+        if (entry.isValid())
+            command = entry.data().toString();
+    }
+
     // open file
-    if (QFileInfo::exists(m_input->text())) {
-        return QProcess::startDetached("xdg-open", QStringList() << m_input->text());
+    if (QFileInfo::exists(command)) {
+        return QProcess::startDetached("xdg-open", QStringList() << command);
     }
 
     // application list
@@ -793,9 +824,8 @@ bool Qiq::runInput() {
 
     // custom command
     QProcess *process = new QProcess(this);
-    enum Type { Normal = 0, NoOut, ForceOut, Math };
+    enum Type { Normal = 0, NoOut, ForceOut, Math, List };
     Type type = Normal;
-    QString command = m_input->text();
     if (command.startsWith("=")) {
         type = Math;
         command.remove(0,1);
@@ -805,7 +835,12 @@ bool Qiq::runInput() {
     } else if (command.startsWith("!")) {
         type = NoOut;
         command.remove(0,1);
-    } else if (command.contains('|')) {
+    } else if (command.startsWith("#")) {
+        type = List;
+        command.remove(0,1);
+        process->setProperty("qiq_type", "list");
+    }
+    if (command.contains('|')) {
         QStringList components = command.split('|');
         command = components.takeLast().trimmed();
         QProcess *sink = process;
@@ -820,12 +855,10 @@ bool Qiq::runInput() {
     }
 
     QMetaObject::Connection processDoneHandler;
-    if (type != NoOut) {
+    if (type != NoOut)
         processDoneHandler = connect(process, &QProcess::finished, this, &Qiq::printOutput);
+    if (type == Normal) { // NoOut is always detached and we want the output of everyhing else, no matter how long it takes and it doesn't need to survive us
         process->setChildProcessModifier([] {::setsid(); });
-    }
-    connect(process, &QProcess::finished, process, &QObject::deleteLater);
-    if (type != NoOut) {
         QTimer::singleShot(3000, this, [=](){
             if (processDoneHandler) {
                 process->closeReadChannel(QProcess::StandardOutput);
@@ -835,6 +868,8 @@ bool Qiq::runInput() {
             }
         });
     }
+    connect(process, &QProcess::finished, process, &QObject::deleteLater);
+
     bool ret = false;
     if (type != Math) {
         int sp = command.indexOf(whitespace);
@@ -881,7 +916,6 @@ bool Qiq::runInput() {
         if (!m_qalc.isEmpty()) {
             process->startCommand(m_qalc);
             ret = process->waitForStarted(250);
-            qDebug() << m_qalc << ret;
             if (ret) {
                 process->setProperty("qiq_type", "math");
                 process->write(command.toLocal8Bit());
