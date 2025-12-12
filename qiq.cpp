@@ -683,8 +683,14 @@ void Qiq::printOutput(int exitCode) {
         } else if (mightBeRichText(stdout)) {
             output += QString::fromLocal8Bit(stdout);
         } else {
-            if (m_aha.isNull() && m_bins->stringList().contains("aha"))
-                m_aha = "aha -x -n";
+            if (m_aha.isNull()) {
+                if (m_bins->stringList().contains("ansifilter"))
+                    m_aha = "ansifilter -f -H";
+                else if (m_bins->stringList().contains("aha"))
+                    m_aha = "aha -x -n";
+                else
+                    m_aha = "";
+            }
             if (!m_aha.isEmpty() && stdout.contains("\e[")) {
                 QProcess aha;
                 aha.startCommand(m_aha);
