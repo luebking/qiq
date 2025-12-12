@@ -436,6 +436,13 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
             }
             return true;
         }
+        if (key == Qt::Key_Space) {
+            if (m_input->selectionEnd() == m_input->text().size()) {
+                m_input->deselect();
+                m_input->setCursorPosition(m_input->text().size());
+            }
+            return false;
+        }
         if (key == Qt::Key_Enter || key == Qt::Key_Return) {
             if (runInput()) {
                 m_input->clear();
@@ -449,6 +456,11 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
             m_list->setModel(m_cmdHistory);
             filter(QString(), Partial);
             setCurrentWidget(m_list);
+            return true;
+        }
+        if (!m_input->isVisible() && static_cast<QKeyEvent*>(e)->text().isEmpty()) {
+            QApplication::sendEvent(currentWidget(), e);
+            return true;
         }
         return false;
     }
