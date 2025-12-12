@@ -31,6 +31,7 @@ private:
     void filterInput();
     void insertToken();
     void makeApplicationModel();
+    void message(const QString &string);
     void printOutput(int exitCode);
     bool runInput();
     QListView *m_list;
@@ -45,7 +46,7 @@ private:
     QString m_externCmd, m_externalReply;
     bool m_wasVisble;
     QHash<QString,QString> m_aliases;
-    QString m_aha, m_qalc;
+    QString m_aha, m_qalc, m_term;
     QStringList m_history;
     int m_currentHistoryIndex;
     QString m_inputBuffer;

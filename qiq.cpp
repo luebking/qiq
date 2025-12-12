@@ -212,6 +212,7 @@ void Qiq::reconfigure() {
 
     m_aha = settings.value("AHA").toString();
     m_qalc = settings.value("CALC").toString();
+    m_term = settings.value("TERMINAL", qEnvironmentVariable("TERMINAL")).toString();
 
     QFont gaugeFont = QFont(settings.value("GaugeFont").toString());
     QStringList gauges = settings.value("Gauges").toStringList();
@@ -657,6 +658,17 @@ bool mightBeRichText(const QString &text) {
     return Qt::mightBeRichText(sample.remove('\n'));
 }
 
+void Qiq::message(const QString &string) {
+    m_autoHide.stop(); // user needs to read this ;)
+    m_disp->setHtml(string);
+    m_disp->setMinimumWidth(qMax(m_defaultSize.width(), qMin(800, 12+qCeil(m_disp->document()->size().width()))));
+    m_disp->setMinimumHeight(qMin(800, 12+qCeil(m_disp->document()->size().height())));
+    if (currentWidget() != m_disp)
+        setCurrentWidget(m_disp);
+    else
+        adjustGeometry();
+}
+
 void Qiq::printOutput(int exitCode) {
     QProcess *process = qobject_cast<QProcess*>(sender());
     if (!process) {
@@ -727,13 +739,7 @@ void Qiq::printOutput(int exitCode) {
             else
                 adjustGeometry();
         } else {
-            m_disp->setHtml(output);
-            m_disp->setMinimumWidth(qMax(m_defaultSize.width(), qMin(800, 12+qCeil(m_disp->document()->size().width()))));
-            m_disp->setMinimumHeight(qMin(800, 12+qCeil(m_disp->document()->size().height())));
-            if (currentWidget() != m_disp)
-                setCurrentWidget(m_disp);
-            else
-                adjustGeometry();
+            message(output);
         }
     }
     process->deleteLater();
@@ -828,14 +834,19 @@ bool Qiq::runInput() {
             QString exec = entry.data(AppExec).toString();
             exec.remove(QRegularExpression("%[fFuU]"));
             m_autoHide.start(500);
+            QStringList args;
             if (entry.data(AppNeedsTE).toBool()) {
-                return QProcess::startDetached("urxvt -e", QStringList() << exec, entry.data(AppPath).toString());
+                if (m_term.isNull()) {
+                    message(tr("<h1>TERMINAL required</h1><i>%1</i> needs a terminal\nPlease configure the \"TERMINAL\" setting or environment variable.").arg(entry.data().toString()));
+                    return false;
+                }
+                args = QProcess::splitCommand(m_term) + QProcess::splitCommand(exec);
             } else {
-                QStringList args = QProcess::splitCommand(exec);
-                if (!args.isEmpty())
-                    exec = args.takeFirst();
-                return QProcess::startDetached(exec, args, entry.data(AppPath).toString());
+                args = QProcess::splitCommand(exec);
             }
+            if (!args.isEmpty())
+                exec = args.takeFirst();
+            return QProcess::startDetached(exec, args, entry.data(AppPath).toString());
         }
     }
 
