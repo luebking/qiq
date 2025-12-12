@@ -197,6 +197,9 @@ Qiq::Qiq() : QStackedWidget() {
     m_disp->setFocusProxy(m_input);
     m_status->setFocusProxy(m_input);
     setFocusProxy(m_input);
+    m_autoHide.setInterval(3000);
+    m_autoHide.setSingleShot(true);
+    connect(&m_autoHide, &QTimer::timeout, this, &QWidget::hide);
 }
 
 void Qiq::reconfigure() {
@@ -354,12 +357,14 @@ void Qiq::adjustGeometry() {
 }
 
 void Qiq::enterEvent(QEnterEvent *ee) {
+    m_autoHide.stop(); // user interaction
     activateWindow();
     QStackedWidget::enterEvent(ee);
 }
 
 bool Qiq::eventFilter(QObject *o, QEvent *e) {
     if (o == m_input && e->type() == QEvent::KeyPress) {
+        m_autoHide.stop(); // user interaction
         const int key = static_cast<QKeyEvent*>(e)->key();
         if (key == Qt::Key_Tab) {
             if (m_input->text().isEmpty()) {
@@ -706,6 +711,7 @@ void Qiq::printOutput(int exitCode) {
     }
 
     if (!output.isEmpty()) {
+        m_autoHide.stop(); // user may wanna read this ;)
         if (showAsList) {
             m_externCmd = "_qiq";
             if (!m_external)
@@ -779,6 +785,8 @@ bool Qiq::runInput() {
             }
             if (!m_wasVisble)
                 hide();
+            else
+                m_autoHide.start(3000);
             return ret;
         }
         return false;
@@ -793,6 +801,7 @@ bool Qiq::runInput() {
         m_list->setModel(m_bins);
         setCurrentWidget(m_status);
         m_cmdHistory->setStringList(QStringList());
+        m_autoHide.stop(); // SIC! Just in case it's running
         return false; // SIC! we don't want the input to be accepted, just changed
     }
 
@@ -808,6 +817,7 @@ bool Qiq::runInput() {
 
     // open file
     if (QFileInfo::exists(command)) {
+        m_autoHide.start(1000);
         return QProcess::startDetached("xdg-open", QStringList() << command);
     }
 
@@ -817,6 +827,7 @@ bool Qiq::runInput() {
         if (entry.isValid()) {
             QString exec = entry.data(AppExec).toString();
             exec.remove(QRegularExpression("%[fFuU]"));
+            m_autoHide.start(500);
             if (entry.data(AppNeedsTE).toBool()) {
                 return QProcess::startDetached("urxvt -e", QStringList() << exec, entry.data(AppPath).toString());
             } else {
@@ -902,6 +913,8 @@ bool Qiq::runInput() {
             ret = process->waitForStarted(250);
         }
         if (ret) {
+            if (type < ForceOut) // ForceOut, Math and List means the user waits for a response
+                m_autoHide.start(3000);
             m_history.removeAll(m_input->text());
             m_history.append(m_input->text());
             if (m_history.size() > 1000)

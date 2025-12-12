@@ -3,6 +3,7 @@
 
 #include <QtDBus/QDBusAbstractAdaptor>
 #include <QStackedWidget>
+#include <QTimer>
 
 class QFileSystemModel;
 class QStandardItemModel;
@@ -48,6 +49,7 @@ private:
     QStringList m_history;
     int m_currentHistoryIndex;
     QString m_inputBuffer;
+    QTimer m_autoHide;
 };
 
 class DBusAdaptor : public QDBusAbstractAdaptor
