@@ -447,6 +447,7 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
             m_inputBuffer = m_input->text();
             m_cmdHistory->setStringList(m_history);
             m_list->setModel(m_cmdHistory);
+            filter(QString(), Partial);
             setCurrentWidget(m_list);
         }
         return false;
@@ -747,14 +748,6 @@ void Qiq::printOutput(int exitCode) {
     process->deleteLater();
 }
 
-class DetachableProcess : public QProcess
-{
-public:
-    DetachableProcess(QObject *parent = 0) : QProcess(parent){}
-    void detach() {
-        setProcessState(QProcess::NotRunning);
-    }
-};
 
 bool Qiq::runInput() {
     // filter from custom list
