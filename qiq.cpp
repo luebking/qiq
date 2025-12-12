@@ -457,6 +457,8 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
 static QString previousNeedle;
 static bool cycleResults = false;
 void Qiq::explicitlyComplete(const QString token) {
+    if (currentWidget() != m_list)
+        cycleResults = false;
     if (cycleResults) {
         if (!m_list->currentIndex().isValid() || m_list->currentIndex().data().toString() == token) {
             QModelIndex oldIndex = m_list->currentIndex();
