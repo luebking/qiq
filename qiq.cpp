@@ -440,7 +440,7 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
             }
             return true;
         }
-        if (key == Qt::Key_Space) {
+        if (key == Qt::Key_Space || (m_list->model() == m_files && static_cast<QKeyEvent*>(e)->text() == "/")) {
             if (m_input->selectionEnd() == m_input->text().size()) {
                 m_input->deselect();
                 m_input->setCursorPosition(m_input->text().size());
