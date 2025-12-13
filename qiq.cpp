@@ -648,8 +648,14 @@ void Qiq::filterInput() {
 }
 
 void Qiq::insertToken() {
-    if (m_list->model() == m_applications || m_list->model() == m_external)
+    if (m_list->model() == m_applications)
         return; // nope. Never.
+    if (m_list->model() == m_external) {
+        if (m_externCmd == "_qiq") { // this is because if the user wants the output as a list they might want to do some with those values
+            m_input->setText(m_list->currentIndex().data().toString());
+        }
+        return;
+    }
     QString newToken = m_list->currentIndex().data().toString();
     if (m_list->model() == m_files) {
         QString path = m_files->rootPath();
