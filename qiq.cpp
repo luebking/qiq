@@ -174,9 +174,14 @@ Qiq::Qiq() : QStackedWidget() {
     m_files = new QFileSystemModel(this);
     m_files->setIconProvider(new QFileIconProvider);
     m_cmdHistory = new QStringListModel(this);
+
+    setUpdatesEnabled(false);
     show();
+    message("dummy"); // QTextBrowser needs a kick in the butt, cause the first document size isn't properly calculated (at all)
+    setCurrentWidget(m_status);
     adjustGeometry();
     activateWindow();
+    setUpdatesEnabled(true);
     connect(m_input, &QLineEdit::textChanged, [=](const QString &text) {
         if (text.isEmpty()) {
             m_input->hide();
@@ -695,9 +700,16 @@ bool mightBeRichText(const QString &text) {
 
 void Qiq::message(const QString &string) {
     m_autoHide.stop(); // user needs to read this ;)
+    m_disp->setMinimumWidth(1);
+    m_disp->setMinimumHeight(1);
+    m_disp->resize(0,0);
     m_disp->setHtml(string);
-    m_disp->setMinimumWidth(qMax(m_defaultSize.width(), qMin(800, 12+qCeil(m_disp->document()->size().width()))));
-    m_disp->setMinimumHeight(qMin(800, 12+qCeil(m_disp->document()->size().height())));
+    QSize max(800,800);
+    if (const QScreen *screen = windowHandle()->screen()) {
+        max = screen->geometry().size()*0.666666667;
+    }
+    m_disp->setMinimumWidth(qMax(m_defaultSize.width(), qMin(max.width(), 12+qCeil(m_disp->document()->size().width()))));
+    m_disp->setMinimumHeight(qMin(max.height(), 12+qCeil(m_disp->document()->size().height())));
     if (currentWidget() != m_disp)
         setCurrentWidget(m_disp);
     else
