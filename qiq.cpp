@@ -417,7 +417,11 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
             return true;
         }
         if (key == Qt::Key_Escape) {
-            if (currentWidget() == m_list && m_list->model() == m_cmdHistory) {
+            if (m_input->echoMode() == QLineEdit::Password) {
+                m_input->clear();
+                m_input->hide(); // force
+                m_input->setEchoMode(QLineEdit::Normal);
+            } else if (currentWidget() == m_list && m_list->model() == m_cmdHistory) {
                 m_list->setCurrentIndex(QModelIndex());
                 runInput();
             } else if (m_input->isVisible()) {
@@ -757,11 +761,15 @@ void Qiq::printOutput(int exitCode) {
             message(output);
         }
     }
-    process->deleteLater();
 }
 
 
 bool Qiq::runInput() {
+    if (m_input->echoMode() == QLineEdit::Password) {
+        // got password password, fix mode and return
+        m_input->setEchoMode(QLineEdit::Normal);
+        return false;
+    }
     // filter from custom list
     if (m_list->model() == m_external && m_externCmd != "_qiq") {
         QModelIndex entry = m_list->currentIndex();
@@ -875,6 +883,7 @@ bool Qiq::runInput() {
         command.remove(0,1);
         process->setProperty("qiq_type", "list");
     }
+    command = command.trimmed();
     if (command.contains('|')) {
         QStringList components = command.split('|');
         command = components.takeLast().trimmed();
@@ -889,19 +898,24 @@ bool Qiq::runInput() {
         }
     }
 
+    QTimer *detachIO = nullptr;
     QMetaObject::Connection processDoneHandler;
     if (type != NoOut)
         processDoneHandler = connect(process, &QProcess::finished, this, &Qiq::printOutput);
     if (type == Normal) { // NoOut is always detached and we want the output of everyhing else, no matter how long it takes and it doesn't need to survive us
         process->setChildProcessModifier([] {::setsid(); });
-        QTimer::singleShot(3000, this, [=](){
+        detachIO = new QTimer(this);
+        detachIO->setSingleShot(true);
+        connect (detachIO, &QTimer::timeout, this, [=](){
             if (processDoneHandler) {
                 process->closeReadChannel(QProcess::StandardOutput);
                 process->closeReadChannel(QProcess::StandardError);
                 process->closeWriteChannel();
                 disconnect(processDoneHandler);
             }
+            detachIO->deleteLater();
         });
+        detachIO->start(3000);
     }
     connect(process, &QProcess::finished, process, &QObject::deleteLater);
 
@@ -920,15 +934,57 @@ bool Qiq::runInput() {
                     command.replace(token, env);
             }
         }
-        
+
+        QString exec = command;
+        QStringList args = QProcess::splitCommand(exec);
+        if (!args.isEmpty())
+            exec = args.takeFirst();
         if (type == NoOut) {
-            QStringList args = QProcess::splitCommand(command);
-            if (!args.isEmpty())
-                command = args.takeFirst();
-            ret = QProcess::startDetached(command, args);
+            ret = QProcess::startDetached(exec, args);
         } else {
-            process->startCommand(command);
+            const bool isSudo((exec == "sudo" || exec == "sudoedit") && !args.contains("-k")); // "sudo -k" fails w/ -n and never needs credentials
+            if (isSudo) {
+                args.prepend("-n");
+                disconnect(process, &QProcess::finished, process, &QObject::deleteLater);
+                process->setChildProcessModifier([] {}); // ::setsid() would lose the cached credentials
+            }
+            process->start(exec, args);
             ret = process->waitForStarted(250);
+            if (ret && isSudo) {
+                process->waitForFinished(250);
+                if (process->state() == QProcess::NotRunning && process->exitCode()) {
+                    detachIO->stop();
+                    message("<h3>" + command + "</h3><h1>" + tr("…enter your sudo password…") + "</h1>" + tr("(press escape to abort)"));
+                    m_input->clear();
+                    m_input->setEchoMode(QLineEdit::Password);
+                    QElapsedTimer time;
+                    while (m_input->echoMode() == QLineEdit::Password) {
+                        time.start();
+                        QApplication::processEvents();
+                        QThread::msleep(33-time.elapsed()); // maintain 30fps but don't live-lock in processEvents()
+                    }
+                    if (m_input->text().isEmpty()) {
+                        setCurrentWidget(m_status);
+                        if (detachIO) detachIO->deleteLater();
+                        process->deleteLater();
+                        return false;
+                    } else {
+                        args.replace(0, "-S"); //  -n has run it's course and would spoil -S
+                        connect(process, &QProcess::finished, process, &QObject::deleteLater);
+                        if (detachIO) detachIO->start(4000);
+                        process->start(exec, args);
+                        ret = process->waitForStarted(250);
+                        if (ret) {
+                            process->waitForReadyRead(1000);
+                            process->write(m_input->text().toLocal8Bit());
+                            process->closeWriteChannel();
+                        }
+                    }
+                }
+                if (!ret)
+                    process->deleteLater();
+                return ret;
+            }
         }
         if (ret) {
             if (type < ForceOut) // ForceOut, Math and List means the user waits for a response
@@ -960,6 +1016,8 @@ bool Qiq::runInput() {
             }
         }
     }
+    if (!ret)
+        process->deleteLater();
     return ret;
 }
 
