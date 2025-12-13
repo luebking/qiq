@@ -113,13 +113,12 @@ Qiq::Qiq() : QStackedWidget() {
     setWindowFlags(Qt::BypassWindowManagerHint);
     addWidget(m_status = new QWidget);
 
-    reconfigure();
-
     m_external = nullptr;
 
     addWidget(m_list = new QListView);
     m_list->setFrameShape(QFrame::NoFrame);
     m_list->setUniformItemSizes(true);
+
 //    m_list->setAutoFillBackground(false);
 //    m_list->viewport()->setAutoFillBackground(false);
     m_lastVisibleRow = -1;
@@ -145,6 +144,9 @@ Qiq::Qiq() : QStackedWidget() {
         else
             disconnect(m_input, &QLineEdit::textEdited, this, &Qiq::filterInput);
     });
+
+    reconfigure();
+
     m_input->setGeometry(0,0,0,m_input->height());
     m_input->setFrame(QFrame::NoFrame);
     m_input->setAutoFillBackground(false);
@@ -226,6 +228,8 @@ void Qiq::reconfigure() {
     m_defaultSize = QSize(settings.value("Width", 640).toUInt(), settings.value("Height", 320).toUInt());
     if (oldDefaultSize != m_defaultSize)
         resize(m_defaultSize);
+    int iconSize = settings.value("IconSize", 48).toUInt();
+    m_list->setIconSize(QSize(iconSize,iconSize));
     QList<Gauge*> oldGauges = m_status->findChildren<Gauge*>();
     for (const QString &gauge : gauges) {
         settings.beginGroup(gauge);
@@ -945,6 +949,8 @@ bool Qiq::runInput() {
         if (type == NoOut) {
             ret = QProcess::startDetached(exec, args);
         } else {
+            if (type == ForceOut)
+                message("<h3 align=center>" + tr("Waiting for output…") + "</h3>");
             const bool isSudo((exec == "sudo" || exec == "sudoedit") && !args.contains("-k")); // "sudo -k" fails w/ -n and never needs credentials
             if (isSudo) {
                 args.prepend("-n");
