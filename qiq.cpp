@@ -696,14 +696,11 @@ void Qiq::printOutput(int exitCode) {
     }
     QString output;
     if (exitCode) {
-        output = "<h3 style=\"color:red;\">" + process->program() + " " + process->arguments().join(" ") + "</h3><pre style=\"color:red;\">";
-//        output = process->program() + " " + process->arguments().join(" ") + "\n==================\n";
-        m_disp->setTextColor(QColor(208,23,23));
+        output = "<h3 align=center style=\"color:#d01717;\">" + process->program() + " " + process->arguments().join(" ") + "</h3><p style=\"color:#d01717;\">";
         QByteArray error = process->readAllStandardError();
         if (!error.isEmpty()) {
-            output += QString::fromLocal8Bit(error);
-        output += "</pre>";
-//            output += "<pre style=\"color:red;\">" + QString::fromLocal8Bit(error) + "</pre>";
+            output += QString::fromLocal8Bit(error).toHtmlEscaped();
+        output += "</p>";
         }
     } else {
         m_disp->setTextColor(m_disp->palette().color(m_disp->foregroundRole()));
@@ -852,7 +849,7 @@ bool Qiq::runInput() {
             QStringList args;
             if (entry.data(AppNeedsTE).toBool()) {
                 if (m_term.isNull()) {
-                    message(tr("<h1>TERMINAL required</h1><i>%1</i> needs a terminal\nPlease configure the \"TERMINAL\" setting or environment variable.").arg(entry.data().toString()));
+                    message(tr("<h1 align=center>TERMINAL required</h1><i>%1</i> needs a terminal\nPlease configure the \"TERMINAL\" setting or environment variable.").arg(entry.data().toString()));
                     return false;
                 }
                 args = QProcess::splitCommand(m_term) + QProcess::splitCommand(exec);
@@ -954,7 +951,7 @@ bool Qiq::runInput() {
                 process->waitForFinished(250);
                 if (process->state() == QProcess::NotRunning && process->exitCode()) {
                     detachIO->stop();
-                    message("<h3>" + command + "</h3><h1>" + tr("…enter your sudo password…") + "</h1>" + tr("(press escape to abort)"));
+                    message("<h3 align=center>" + command + "</h3><h1 align=center>" + tr("…enter your sudo password…") + "</h1><p align=center>" + tr("(press escape to abort)") + "</p>");
                     m_input->clear();
                     m_input->setEchoMode(QLineEdit::Password);
                     QElapsedTimer time;
