@@ -665,7 +665,7 @@ void Qiq::insertToken() {
 }
 
 bool mightBeRichText(const QString &text) {
-    QString sample = text.left(512);
+    QString sample = text; //.left(512);
     if (sample.contains("<html>", Qt::CaseInsensitive))
         return true;
     if (sample.contains("<!DOCTYPE HTML<html>", Qt::CaseInsensitive))
@@ -709,11 +709,11 @@ void Qiq::printOutput(int exitCode) {
     QByteArray stdout = process->readAllStandardOutput();
     if (!stdout.isEmpty()) {
         if (process->property("qiq_type").toString() == "math") {
-            output += "<h1 align=center>" + QString::fromLocal8Bit(stdout) + "</h1>";
+            output += "<pre align=center style=\"font-size:xx-large;\"><br><br>" + QString::fromLocal8Bit(stdout) + "</pre>";
         } else if (process->property("qiq_type").toString() == "list") {
             showAsList = true;
-            output = stdout;
-        } else if (mightBeRichText(stdout)) {
+            output = QString::fromLocal8Bit(stdout);
+        } else if (mightBeRichText(QString::fromLocal8Bit(stdout.left(512)))) {
             output += QString::fromLocal8Bit(stdout);
         } else {
             if (m_aha.isNull()) {
