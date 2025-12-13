@@ -149,6 +149,9 @@ Qiq::Qiq() : QStackedWidget() {
     m_input->setFrame(QFrame::NoFrame);
     m_input->setAutoFillBackground(false);
     m_input->setAlignment(Qt::AlignCenter);
+    QFont fnt = font();
+    fnt.setPointSize(2*fnt.pointSize());
+    m_input->setFont(fnt);
     m_input->setFocus();
     m_input->hide();
     QPalette pal = m_input->palette();
@@ -181,15 +184,18 @@ Qiq::Qiq() : QStackedWidget() {
                 setCurrentWidget(m_status);
             return;
         }
+        QFont fnt = font();
+        fnt.setPointSize((2.0f-qMin(1.2f, text.size()/80.0f))*fnt.pointSize());
+        m_input->setFont(fnt);
         if (currentWidget() == m_status && text.size() == 1) {
             m_list->setModel(m_applications);
             filterInput();
             setCurrentWidget(m_list);
         }
 
-        const QSize ts = m_input->fontMetrics().boundingRect(text).size();
-        const int w = m_input->style()->sizeFromContents(QStyle::CT_LineEdit, nullptr, ts, m_input).width() + 8;
-        m_input->setGeometry((width() - w)/2, (height() - m_input->height())/2, w, m_input->height());
+        const QSize ts = m_input->fontMetrics().boundingRect("xx" + text).size();
+        const int w = m_input->style()->sizeFromContents(QStyle::CT_LineEdit, nullptr, ts, m_input).width();
+        m_input->setGeometry((width() - w)/2, (height() - 2*ts.height())/2, w, 2*ts.height());
         m_input->show();
     });
     m_list->setFocusProxy(m_input);
