@@ -23,6 +23,7 @@
 #include <QtDBus/QDBusInterface>
 #include <QtDBus/QDBusMessage>
 
+#include <signal.h>
 #include <unistd.h>
 
 #include <QtDebug>
@@ -31,6 +32,23 @@
 #include "qiq.h"
 
 static QRegularExpression whitespace("[;&|[:space:]]+"); //[^\\\\]*
+static Qiq *gs_qiq = nullptr;
+#ifndef Q_OS_WIN
+static void sighandler(int signum) {
+    switch(signum) {
+//        case SIGABRT:
+        case SIGINT:
+//        case SIGSEGV:
+        case SIGTERM:
+            if (gs_qiq)
+                gs_qiq->writeHistory();
+            break;
+        default:
+            break;
+    }
+    raise(signum);
+}
+#endif
 
 int main (int argc, char **argv)
 {
@@ -101,6 +119,17 @@ int main (int argc, char **argv)
     Qiq *q = new Qiq;
     if (isDaemon)
         q->hide();
+#ifndef Q_OS_WIN
+    gs_qiq = q;
+    struct sigaction sa;
+    sa.sa_handler = sighandler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART|SA_RESETHAND;
+    for (int signum : {/* SIGABRT,SIGSEGV, */SIGINT,SIGTERM}) {
+        if (sigaction(signum, &sa, NULL) == -1)
+            qDebug() << "no signal handling for" << signum;
+    }
+#endif
     return a.exec();
 }
 
@@ -115,6 +144,7 @@ Qiq::Qiq() : QStackedWidget() {
 
     m_external = nullptr;
     m_cmdCompleted = nullptr;
+    m_historySaver = nullptr;
 
     addWidget(m_list = new QListView);
     m_list->setFrameShape(QFrame::NoFrame);
@@ -147,6 +177,15 @@ Qiq::Qiq() : QStackedWidget() {
     });
 
     reconfigure();
+
+    if (!m_historyPath.isEmpty()) {
+        QFile f(m_historyPath);
+        if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            m_history = QString::fromUtf8(f.readAll()).split('\n');
+        } else {
+            qDebug() << "could not open" << m_historyPath << "for reading";
+        }
+    }
 
     m_input->setGeometry(0,0,0,m_input->height());
     m_input->setFrame(QFrame::NoFrame);
@@ -229,6 +268,13 @@ void Qiq::reconfigure() {
     m_term = settings.value("TERMINAL", qEnvironmentVariable("TERMINAL")).toString();
     m_cmdCompletion = settings.value("CmdCompleter").toString();
     m_cmdCompletionSep = settings.value("CmdCompletionSep").toString();
+    m_historyPath = settings.value("HistoryPath").toString();
+    if (!m_historyPath.isEmpty() && !m_historySaver) {
+        m_historySaver = new QTimer(this);
+        m_historySaver->setSingleShot(true);
+        m_historySaver->setInterval(300000); // 5 minutes
+        connect(m_historySaver, &QTimer::timeout, this, &Qiq::writeHistory);
+    }
 
     QFont gaugeFont = QFont(settings.value("GaugeFont").toString());
     QStringList gauges = settings.value("Gauges").toStringList();
@@ -1067,6 +1113,17 @@ bool Qiq::runInput() {
             if (m_history.size() > 1000)
                 m_history.removeFirst();
             m_currentHistoryIndex = -1;
+            if (m_historySaver) {
+                if (m_historySaver->remainingTime() < 4*m_historySaver->interval()/5) { // when the timer has 80% left, we just let it run out
+                    static int bumpCounter = 0;
+                    if (++bumpCounter > 8) { // we've bumped this for maximum half an hour now
+                        bumpCounter = 0;
+                        writeHistory(); // so save the history
+                    } else { // delay
+                        m_historySaver->start();
+                    }
+                }
+            }
             return true;
         }
     }
@@ -1159,5 +1216,16 @@ void Qiq::toggle() {
     } else {
         activateWindow();
         raise();
+    }
+}
+
+void Qiq::writeHistory() {
+    if (m_historyPath.isEmpty() || m_history.isEmpty()) // also don't try to save an empty history - who knows what happened there
+        return;
+    QFile f(m_historyPath);
+    if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        f.write(m_history.join('\n').toUtf8());
+    } else {
+        qDebug() << "could not open" << m_historyPath << "for writing";
     }
 }

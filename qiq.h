@@ -19,6 +19,7 @@ public:
     QString filterCustom(const QString source, const QString action = QString(), const QString fieldSeparator = QString());
     void reconfigure();
     void toggle();
+    void writeHistory();
 protected:
     void enterEvent(QEnterEvent *ee) override;
     bool eventFilter(QObject *o, QEvent *e) override;
@@ -52,6 +53,8 @@ private:
     int m_currentHistoryIndex;
     QString m_inputBuffer;
     QTimer m_autoHide;
+    QTimer *m_historySaver;
+    QString m_historyPath;
 };
 
 class DBusAdaptor : public QDBusAbstractAdaptor
