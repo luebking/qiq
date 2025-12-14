@@ -497,18 +497,16 @@ void Qiq::explicitlyComplete() {
     if (currentWidget() != m_list)
         cycleResults = false;
     if (cycleResults) {
-        if (!m_list->currentIndex().isValid() || m_list->currentIndex().data().toString() == lastToken) {
-            QModelIndex oldIndex = m_list->currentIndex();
-            QKeyEvent ke(QEvent::KeyPress, Qt::Key_Down, Qt::NoModifier);
-            m_list->setEnabled(true);
+        QModelIndex oldIndex = m_list->currentIndex();
+        QKeyEvent ke(QEvent::KeyPress, Qt::Key_Down, Qt::NoModifier);
+        m_list->setEnabled(true);
+        QApplication::sendEvent(m_list, &ke);
+        if (oldIndex == m_list->currentIndex()) {
+            QKeyEvent ke(QEvent::KeyPress, Qt::Key_Home, Qt::NoModifier);
             QApplication::sendEvent(m_list, &ke);
-            if (oldIndex == m_list->currentIndex()) {
-                QKeyEvent ke(QEvent::KeyPress, Qt::Key_Home, Qt::NoModifier);
+            if (m_list->isRowHidden(0)) {
+                QKeyEvent ke(QEvent::KeyPress, Qt::Key_Down, Qt::NoModifier);
                 QApplication::sendEvent(m_list, &ke);
-                if (m_list->isRowHidden(0)) {
-                    QKeyEvent ke(QEvent::KeyPress, Qt::Key_Down, Qt::NoModifier);
-                    QApplication::sendEvent(m_list, &ke);
-                }
             }
         }
         insertToken();
@@ -529,8 +527,11 @@ void Qiq::explicitlyComplete() {
         setCurrentWidget(m_list);
         // this can take a moment to feed the model
         connect(m_files, &QFileSystemModel::directoryLoaded, this, [=](const QString &path) {
-                        if (path == m_files->rootPath())
+                        if (path == m_files->rootPath()) {
+                            m_files->sort(0);
                             filter(fileInfo.fileName(), Begin);
+                        }
+                        cycleResults = true;
                         }, Qt::SingleShotConnection);
         cycleResults = true;
         return;
@@ -552,6 +553,7 @@ void Qiq::explicitlyComplete() {
                 m_cmdCompleted->setStringList(completions);
                 m_list->setModel(m_cmdCompleted);
                 setCurrentWidget(m_list);
+                filterInput();
             }
         }
     } else {
@@ -560,6 +562,7 @@ void Qiq::explicitlyComplete() {
         filter(lastToken, Begin);
         setCurrentWidget(m_list);
     }
+    cycleResults = true;
 }
 
 void Qiq::tokenUnderCursor(int &left, int &right) {
@@ -666,11 +669,9 @@ void Qiq::filterInput() {
     int left, right;
     tokenUnderCursor(left, right);
     text = text.mid(left, right - left);
-//    qDebug() << "filter input" << text;
     if (m_list->model() == m_files) {
         QFileInfo fileInfo(text);
         const QString path = fileInfo.dir().absolutePath();
-//        qDebug() << "filesystem" << m_files->rootPath() << path;
         if (path != m_files->rootPath()) {
             m_files->setRootPath(path);
             m_list->setCurrentIndex(QModelIndex());
@@ -707,8 +708,11 @@ void Qiq::insertToken() {
         m_input->setText(newToken);
         return;
     } else if (m_list->model() == m_cmdCompleted) {
-        if (!m_cmdCompletionSep.isEmpty())
+        if (!m_cmdCompletionSep.isEmpty()) {
             newToken = newToken.section(m_cmdCompletionSep, 0, 0);
+            newToken.remove('\r'); // zsh completions at times at least have that, probably to control the cursor
+            newToken.remove('\t'); newToken.remove('\a'); // just for good measure
+        }
     }
     QString text = m_input->text();
 
