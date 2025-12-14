@@ -114,6 +114,7 @@ Qiq::Qiq() : QStackedWidget() {
     addWidget(m_status = new QWidget);
 
     m_external = nullptr;
+    m_cmdCompleted = nullptr;
 
     addWidget(m_list = new QListView);
     m_list->setFrameShape(QFrame::NoFrame);
@@ -226,6 +227,8 @@ void Qiq::reconfigure() {
     m_aha = settings.value("AHA").toString();
     m_qalc = settings.value("CALC").toString();
     m_term = settings.value("TERMINAL", qEnvironmentVariable("TERMINAL")).toString();
+    m_cmdCompletion = settings.value("CmdCompleter").toString();
+    m_cmdCompletionSep = settings.value("CmdCompletionSep").toString();
 
     QFont gaugeFont = QFont(settings.value("GaugeFont").toString());
     QStringList gauges = settings.value("Gauges").toStringList();
@@ -403,7 +406,7 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
                     setCurrentWidget(m_status);
                 }
             } else {
-                explicitlyComplete(m_input->text().left(m_input->cursorPosition()).section(whitespace, -1, -1));
+                explicitlyComplete();
             }
             return true;
         }
@@ -489,11 +492,12 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
 
 static QString previousNeedle;
 static bool cycleResults = false;
-void Qiq::explicitlyComplete(const QString token) {
+void Qiq::explicitlyComplete() {
+    const QString lastToken = m_input->text().left(m_input->cursorPosition()).section(whitespace, -1, -1);
     if (currentWidget() != m_list)
         cycleResults = false;
     if (cycleResults) {
-        if (!m_list->currentIndex().isValid() || m_list->currentIndex().data().toString() == token) {
+        if (!m_list->currentIndex().isValid() || m_list->currentIndex().data().toString() == lastToken) {
             QModelIndex oldIndex = m_list->currentIndex();
             QKeyEvent ke(QEvent::KeyPress, Qt::Key_Down, Qt::NoModifier);
             m_list->setEnabled(true);
@@ -510,12 +514,12 @@ void Qiq::explicitlyComplete(const QString token) {
         insertToken();
         return;
     }
-    QString path = token;
+    QString path = lastToken;
     if (path.startsWith('~'))
         path.replace(0,1,QDir::homePath());
     QFileInfo fileInfo(path);
     QDir dir = fileInfo.dir();
-    if (dir.exists() && (dir != QDir::current() || token.contains('/'))) {
+    if (dir.exists() && (dir != QDir::current() || lastToken.contains('/'))) {
         m_list->setModel(m_files);
         m_files->setRootPath(dir.absolutePath());
         m_list->setCurrentIndex(QModelIndex());
@@ -528,13 +532,42 @@ void Qiq::explicitlyComplete(const QString token) {
                         if (path == m_files->rootPath())
                             filter(fileInfo.fileName(), Begin);
                         }, Qt::SingleShotConnection);
+        cycleResults = true;
+        return;
+    }
+    QString lastCmd = m_input->text().left(m_input->cursorPosition()).section('|', -1, -1);
+    static const QRegularExpression leadingWS("^\\s*");
+    lastCmd.remove(leadingWS);
+    if (m_bins->stringList().contains(lastCmd.section(whitespace, 0, 0).trimmed())) { // first token is a known binary
+        if (!m_cmdCompletion.isEmpty()) {
+            QProcess complete;
+            complete.start(m_cmdCompletion, QStringList() << lastCmd);
+            if (complete.waitForFinished(2000)) {
+                if (!m_cmdCompleted)
+                    m_cmdCompleted = new QStringListModel(this);
+                QStringList completions = QString::fromLocal8Bit(complete.readAllStandardOutput()).split('\n');
+                if (completions.last().isEmpty())
+                    completions.removeLast();
+                completions.removeDuplicates();
+                m_cmdCompleted->setStringList(completions);
+                m_list->setModel(m_cmdCompleted);
+                setCurrentWidget(m_list);
+            }
+        }
     } else {
         m_list->setModel(m_bins);
         previousNeedle.clear();
-        filter(token, Begin);
+        filter(lastToken, Begin);
         setCurrentWidget(m_list);
     }
-    cycleResults = true;
+}
+
+void Qiq::tokenUnderCursor(int &left, int &right) {
+    const QString text = m_input->text();
+    left = text.lastIndexOf(whitespace, m_input->cursorPosition() - 1) + 1;
+    right = text.indexOf(whitespace, m_input->cursorPosition());
+    if (right < 0)
+        right = text.length();
 }
 
 void Qiq::filter(const QString needle, MatchType matchType) {
@@ -630,10 +663,8 @@ void Qiq::filterInput() {
         return filter(m_input->text(), Partial);
 
     QString text = m_input->text();
-    const int left = text.lastIndexOf(whitespace, m_input->cursorPosition() - 1) + 1;
-    int right = text.indexOf(whitespace, m_input->cursorPosition());
-    if (right < 0)
-        right = text.length();
+    int left, right;
+    tokenUnderCursor(left, right);
     text = text.mid(left, right - left);
 //    qDebug() << "filter input" << text;
     if (m_list->model() == m_files) {
@@ -675,17 +706,25 @@ void Qiq::insertToken() {
     } else if (m_list->model() == m_cmdHistory) {
         m_input->setText(newToken);
         return;
+    } else if (m_list->model() == m_cmdCompleted) {
+        if (!m_cmdCompletionSep.isEmpty())
+            newToken = newToken.section(m_cmdCompletionSep, 0, 0);
     }
     QString text = m_input->text();
-    const int left = text.lastIndexOf(whitespace, m_input->cursorPosition() - 1) + 1;
-    int right = text.indexOf(whitespace, m_input->cursorPosition());
-    if (right < 0)
-        right = text.length();
-    text.replace(left, right - left, newToken);
+
+    int pos = m_input->selectionStart();
+    if (pos > -1) {
+        int len = m_input->selectionLength();
+        text.replace(pos, len, newToken);
+        m_input->setText(text);
+    } else {
+        int left, right;
+        tokenUnderCursor(left, right);
+        text.replace(left, right - pos, newToken);
+    }
     m_input->setText(text);
-    if (text.length() > right)
-        m_input->setSelection(right, left + newToken.size() - right);
-//    m_input->setCursorPosition(left + newToken.size());
+    if (pos > -1)
+        m_input->setSelection(pos, newToken.length());
 }
 
 bool mightBeRichText(const QString &text) {
