@@ -409,6 +409,7 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
         }
         if (key == Qt::Key_Up || key == Qt::Key_Down) {
             if (currentWidget() == m_list) {
+                m_list->setEnabled(true);
                 QApplication::sendEvent(currentWidget(), e);
                 insertToken();
             } else {
@@ -495,6 +496,7 @@ void Qiq::explicitlyComplete(const QString token) {
         if (!m_list->currentIndex().isValid() || m_list->currentIndex().data().toString() == token) {
             QModelIndex oldIndex = m_list->currentIndex();
             QKeyEvent ke(QEvent::KeyPress, Qt::Key_Down, Qt::NoModifier);
+            m_list->setEnabled(true);
             QApplication::sendEvent(m_list, &ke);
             if (oldIndex == m_list->currentIndex()) {
                 QKeyEvent ke(QEvent::KeyPress, Qt::Key_Home, Qt::NoModifier);
@@ -544,7 +546,6 @@ void Qiq::filter(const QString needle, MatchType matchType) {
     int visible = 0;
     static int prevVisible = 0;
     int firstVisRow = m_lastVisibleRow = -1;
-    bool looksLikeCommand = false;
 
     if (m_list->model() == m_applications) {
         QStringList tokens = needle.split(whitespace);
@@ -572,9 +573,6 @@ void Qiq::filter(const QString needle, MatchType matchType) {
             }
             m_list->setRowHidden(i, !(vis && ++visible));
         }
-        // if the user seems to enter a command, unselect any entries and force reselection
-        if (m_list->currentIndex().isValid())
-           looksLikeCommand = m_input->text().contains('|') || (m_input->text().trimmed().contains(whitespace) && m_bins->stringList().contains(m_input->text().split(whitespace).first()));
     } else if (matchType == Begin) {
         for (int i = 0; i < rows; ++i) {
             const bool vis = m_list->model()->index(i, 0, m_list->rootIndex()).data().toString().startsWith(needle, Qt::CaseInsensitive);
@@ -608,13 +606,18 @@ void Qiq::filter(const QString needle, MatchType matchType) {
     }
     previousNeedle = needle;
     const int row = m_list->currentIndex().row();
+    bool looksLikeCommand = false;
+    if (m_list->currentIndex().isValid() && (m_list->model() == m_applications || m_list->model() == m_external))
+        looksLikeCommand = m_input->text().contains('|') || (m_input->text().trimmed().contains(whitespace) && m_bins->stringList().contains(m_input->text().split(whitespace).first()));
     if (looksLikeCommand) {
+        // if the user seems to enter a command, unselect any entries and force reselection
         m_list->setCurrentIndex(QModelIndex());
     } else if (visible > 0 && (row < 0 || m_list->isRowHidden(row))) {
         m_list->setCurrentIndex(m_list->model()->index(firstVisRow, 0, m_list->rootIndex()));
     } else if (!visible || (visible > 1 && shrink && prevVisible == 1)) {
         m_list->setCurrentIndex(QModelIndex());
     }
+    m_list->setEnabled(m_list->currentIndex().isValid());
     prevVisible = visible;
     if (visible == 1 && !shrink && !needle.isEmpty()) {
         QTimer::singleShot(1, this, &Qiq::insertToken); // needs to be delayed to trigger the textChanged after the actual edit
@@ -835,7 +838,7 @@ bool Qiq::runInput() {
                 m_autoHide.start(3000);
             return ret;
         }
-        return false;
+//        return false; // fall through for regular command handling
     }
 
     if (m_list->model() == m_cmdHistory) {
