@@ -545,6 +545,23 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
             QApplication::sendEvent(currentWidget(), e);
             return true;
         }
+        if (currentWidget() == m_disp) {
+            if (key == Qt::Key_PageUp && !m_input->text().isEmpty()) {
+                m_disp->find(m_input->text(), QTextDocument::FindBackward);
+                return true;
+            }
+            if (key == Qt::Key_PageDown && !m_input->text().isEmpty()) {
+                m_disp->find(m_input->text());
+                return true;
+            }
+            if (!static_cast<QKeyEvent*>(e)->text().isEmpty()) {
+                QTimer::singleShot(0, [=](){ // text needs to be updated first
+                    if (!m_disp->find(m_input->text()))
+                        m_disp->find(m_input->text(), QTextDocument::FindBackward);
+                    });
+                // fall through, input still needs to be handled
+            }
+        }
         return false;
     }
     return false;
