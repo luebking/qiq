@@ -244,6 +244,7 @@ Qiq::Qiq() : QStackedWidget() {
         const int w = m_input->style()->sizeFromContents(QStyle::CT_LineEdit, nullptr, ts, m_input).width();
         m_input->setGeometry((width() - w)/2, (height() - 2*ts.height())/2, w, 2*ts.height());
         m_input->show();
+        m_input->setFocus();
     });
     m_list->setFocusProxy(m_input);
     m_list->viewport()->setFocusProxy(m_input);
@@ -412,6 +413,9 @@ void Qiq::adjustGeometry() {
         }
         resize(sz);
     }
+    QRect r = m_input->rect();
+    r.moveCenter(rect().center());
+    m_input->setGeometry(r);
     if (const QScreen *screen = windowHandle()->screen()) {
         QRect r = rect();
         r.moveCenter(screen->geometry().center());
@@ -454,6 +458,12 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
             } else {
                 explicitlyComplete();
             }
+            return true;
+        }
+        if ((key == Qt::Key_PageUp || key == Qt::Key_PageDown) && currentWidget() == m_list) {
+            m_list->setEnabled(true);
+            QApplication::sendEvent(currentWidget(), e);
+            insertToken();
             return true;
         }
         if (key == Qt::Key_Up || key == Qt::Key_Down) {
@@ -527,6 +537,10 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
             setCurrentWidget(m_list);
             return true;
         }
+        if (key == Qt::Key_Delete && currentWidget() == m_list && m_list->model() == m_cmdHistory) {
+            m_history.removeAll(m_list->currentIndex().data().toString());
+            m_cmdHistory->setStringList(m_history);
+        }
         if (!m_input->isVisible() && static_cast<QKeyEvent*>(e)->text().isEmpty()) {
             QApplication::sendEvent(currentWidget(), e);
             return true;
@@ -564,13 +578,18 @@ void Qiq::explicitlyComplete() {
     QFileInfo fileInfo(path);
     QDir dir = fileInfo.dir();
     if (dir.exists() && (dir != QDir::current() || lastToken.contains('/'))) {
+        setCurrentWidget(m_list);
         m_list->setModel(m_files);
+        cycleResults = true;
+        if (m_files->rootPath() == dir.absolutePath()) {
+            insertToken();
+            return; // idempotent, leave the directory as is
+        }
         m_files->setRootPath(dir.absolutePath());
         m_list->setCurrentIndex(QModelIndex());
         QModelIndex newRoot = m_files->index(m_files->rootPath());
         m_list->setRootIndex(newRoot);
         previousNeedle.clear();
-        setCurrentWidget(m_list);
         // this can take a moment to feed the model
         connect(m_files, &QFileSystemModel::directoryLoaded, this, [=](const QString &path) {
                         if (path == m_files->rootPath()) {
@@ -579,12 +598,16 @@ void Qiq::explicitlyComplete() {
                         }
                         cycleResults = true;
                         }, Qt::SingleShotConnection);
-        cycleResults = true;
         return;
     }
+    auto stripInstruction = [=](QString &token) {
+        if (token.startsWith('=') || token.startsWith('?') || token.startsWith('!') || token.startsWith('#'))
+            token.remove(0,1);
+    };
     QString lastCmd = m_input->text().left(m_input->cursorPosition()).section('|', -1, -1);
     static const QRegularExpression leadingWS("^\\s*");
     lastCmd.remove(leadingWS);
+    stripInstruction(lastCmd);
     if (m_bins->stringList().contains(lastCmd.section(whitespace, 0, 0).trimmed())) { // first token is a known binary
         if (!m_cmdCompletion.isEmpty()) {
             QProcess complete;
@@ -605,7 +628,9 @@ void Qiq::explicitlyComplete() {
     } else {
         m_list->setModel(m_bins);
         previousNeedle.clear();
-        filter(lastToken, Begin);
+        lastCmd = lastToken;
+        stripInstruction(lastCmd);
+        filter(lastCmd, Begin);
         setCurrentWidget(m_list);
     }
     cycleResults = true;
@@ -620,7 +645,8 @@ void Qiq::tokenUnderCursor(int &left, int &right) {
 }
 
 void Qiq::filter(const QString needle, MatchType matchType) {
-    cycleResults = false;
+    if (!needle.isNull()) // artificial to prime geometry adjustment
+        cycleResults = false;
     if (!m_list->model())
         return;
     bool shrink = false;
@@ -726,8 +752,7 @@ void Qiq::filterInput() {
             m_files->fetchMore(newRoot);
         }
         text = fileInfo.fileName();
-    }
-    else if (m_list->model() == m_bins && text.isEmpty()) {
+    } else if (m_list->model() == m_bins && text.isEmpty()) {
         setCurrentWidget(m_status);
     }
     filter(text, Begin);
@@ -770,11 +795,17 @@ void Qiq::insertToken() {
     } else {
         int left, right;
         tokenUnderCursor(left, right);
-        text.replace(left, right - pos, newToken);
+        const QChar firstChar = text.at(left);
+        if (firstChar == '=' || firstChar == '?' || firstChar == '!' || firstChar == '#')
+            ++left;
+        text.replace(left, right - left, newToken);
+        pos = -(left+newToken.size());
     }
     m_input->setText(text);
     if (pos > -1)
         m_input->setSelection(pos, newToken.length());
+    else
+        m_input->setCursorPosition(-pos);
 }
 
 bool mightBeRichText(const QString &text) {
@@ -960,7 +991,7 @@ bool Qiq::runInput() {
     }
 
     // application list
-    if (m_list->model() == m_applications) {
+    if (currentWidget() == m_list && m_list->model() == m_applications) {
         QModelIndex entry = m_list->currentIndex();
         if (entry.isValid()) {
             QString exec = entry.data(AppExec).toString();
@@ -1043,6 +1074,21 @@ bool Qiq::runInput() {
             sp = command.size();
         const QString bin = command.left(sp);
         command.replace(0, sp, m_aliases.value(bin, bin));
+        // the alias could have introduced an instruction
+        // strip that and adhere, but don't override explict Types
+        if (command.startsWith("?")) {
+            if (type == Normal) type = ForceOut;
+            command.remove(0,1);
+        } else if (command.startsWith("!")) {
+            if (type == Normal) type = NoOut;
+            command.remove(0,1);
+        } else if (command.startsWith("#")) {
+            if (type == Normal) {
+                type = List;
+                process->setProperty("qiq_type", "list");
+            }
+            command.remove(0,1);
+        }
         QStringList tokens = command.split(whitespace);
         for (const QString &token : tokens) {
             if (token.startsWith('$')) {
