@@ -940,7 +940,7 @@ bool Qiq::runInput() {
     if (currentWidget() == m_list)
         currentModel = m_list->model();
 
-    // filter from custom list
+    // filter from custom list ==========================================================================================================
     if (currentModel == m_external && m_externCmd != "_qiq") {
         QModelIndex entry = m_list->currentIndex();
         if (entry.isValid()) {
@@ -980,9 +980,11 @@ bool Qiq::runInput() {
                 m_autoHide.start(3000);
             return ret;
         }
-//        return false; // fall through for regular command handling
+//        return false; // No! fall through for regular command handling
     }
+    // =============================================================================================================================
 
+    // filter from history ==========================================================================================================
     if (currentModel == m_cmdHistory) {
         QModelIndex entry = m_list->currentIndex();
         if (entry.isValid())
@@ -995,6 +997,7 @@ bool Qiq::runInput() {
         m_autoHide.stop(); // SIC! Just in case it's running
         return false; // SIC! we don't want the input to be accepted, just changed
     }
+    // =============================================================================================================================
 
     QString command = m_input->text();
     static QRegularExpression hometilde("(^|\\W)~(/|\\W|$)");
@@ -1006,13 +1009,14 @@ bool Qiq::runInput() {
             command = entry.data().toString();
     }
 
-    // open file
+    // open file ==================================================================================================================
     if (QFileInfo::exists(command)) {
         m_autoHide.start(1000);
         return QProcess::startDetached("xdg-open", QStringList() << command);
     }
+    // ============================================================================================================================
 
-    // application list
+    // application list ===========================================================================================================
     if (currentModel == m_applications) {
         QModelIndex entry = m_list->currentIndex();
         if (entry.isValid()) {
@@ -1035,7 +1039,7 @@ bool Qiq::runInput() {
         }
     }
 
-    // custom command
+    // custom command ===========================================================================================================
     QProcess *process = new QProcess(this);
     enum Type { Normal = 0, NoOut, ForceOut, Math, List };
     Type type = Normal;
@@ -1151,11 +1155,13 @@ bool Qiq::runInput() {
                         QThread::msleep(33-time.elapsed()); // maintain 30fps but don't live-lock in processEvents()
                     }
                     if (m_input->text().isEmpty()) {
+                        message("<h3 align=center>" + command + "</h3><h1 align=center>" + tr("aborted") + "</h1>");
                         setCurrentWidget(m_status);
                         if (detachIO) detachIO->deleteLater();
                         process->deleteLater();
                         return false;
                     } else {
+                        message("<h3 align=center>" + command + "</h3><h1 align=center>" + tr("Password entered") + "</h1>");
                         args.replace(0, "-S"); //  -n has run it's course and would spoil -S
                         connect(process, &QProcess::finished, process, &QObject::deleteLater);
                         if (detachIO) detachIO->start(4000);
@@ -1195,8 +1201,9 @@ bool Qiq::runInput() {
             return true;
         }
     }
+    // ============================================================================================================================
 
-    // last resort: is this some math?
+    // last resort: is this some math?  ===========================================================================================
     if (!ret) {
         if (m_qalc.isNull()) {
             if (m_bins->stringList().contains("qalc"))
