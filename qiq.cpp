@@ -935,8 +935,13 @@ bool Qiq::runInput() {
         m_input->setEchoMode(QLineEdit::Normal);
         return false;
     }
+
+    QAbstractItemModel *currentModel = nullptr;
+    if (currentWidget() == m_list)
+        currentModel = m_list->model();
+
     // filter from custom list
-    if (m_list->model() == m_external && m_externCmd != "_qiq") {
+    if (currentModel == m_external && m_externCmd != "_qiq") {
         QModelIndex entry = m_list->currentIndex();
         if (entry.isValid()) {
             bool ret = false;
@@ -978,7 +983,7 @@ bool Qiq::runInput() {
 //        return false; // fall through for regular command handling
     }
 
-    if (m_list->model() == m_cmdHistory) {
+    if (currentModel == m_cmdHistory) {
         QModelIndex entry = m_list->currentIndex();
         if (entry.isValid())
             m_input->setText(entry.data().toString());
@@ -1008,7 +1013,7 @@ bool Qiq::runInput() {
     }
 
     // application list
-    if (currentWidget() == m_list && m_list->model() == m_applications) {
+    if (currentModel == m_applications) {
         QModelIndex entry = m_list->currentIndex();
         if (entry.isValid()) {
             QString exec = entry.data(AppExec).toString();
