@@ -1,6 +1,7 @@
 #ifndef QIQ_H
 #define QIQ_H
 
+#include <QCoreApplication>
 #include <QtDBus/QDBusAbstractAdaptor>
 #include <QStackedWidget>
 #include <QTimer>
@@ -73,6 +74,18 @@ public slots:
     Q_NOREPLY void reconfigure() { qiq->reconfigure(); }
 private:
     Qiq *qiq;
+};
+
+class DBusReceptor : public QCoreApplication
+{
+    Q_OBJECT
+public:
+    DBusReceptor(uint id, int argc = 0, char **argv = nullptr) : QCoreApplication(argc, argv), m_id(id) { }
+public slots:
+    void ActionInvoked(uint id, QString action_key);
+    void NotificationClosed(uint id, uint reason);
+private:
+    uint m_id;
 };
 
 #endif // QIQ_H

@@ -51,13 +51,102 @@ static void sighandler(int signum) {
 }
 #endif
 
+void DBusReceptor::ActionInvoked(uint id, QString action_key) {
+    if (id == m_id) {
+        printf("%s\n", action_key.toLocal8Bit().data());
+        quit();
+    }
+}
+
+void DBusReceptor::NotificationClosed(uint id, uint reason) {
+    if (id == m_id) {
+        printf("%u\n", reason);
+        quit();
+    }
+}
+
+
+int notify(const QStringList &args) {
+    if (args.isEmpty()) {
+        qDebug() << "You need to provide at least a summary";
+        return -1;
+    }
+
+    QDBusInterface notifications( "org.freedesktop.Notifications", "/org/freedesktop/Notifications", "org.freedesktop.Notifications" );
+    QList<QVariant> vl;
+    if (args.at(0).startsWith("close=")) {
+        vl << args.at(0).mid(6).toUInt();
+        notifications.callWithArgumentList(QDBus::NoBlock, "CloseNotification", vl);
+        return 0;
+    }
+
+    bool waitForClose = false;
+    bool waitForAction = false;
+    QString summary = args.at(0);
+    QVariantMap hints;
+    uint id = 0;
+    QString appName, appIcon, body;
+    int timeout = 0;
+    QStringList actions;
+
+    for (int i = 1; i < args.size(); ++i) {
+        if (args.at(i) == "transient")
+            hints["transient"] = true;
+        else if (args.at(i) == "resident")
+            hints["resident"] = true;
+        else if (args.at(i) == "wait")
+            waitForClose = true;
+        else {
+            const QString key = args.at(i).section('=',0,0);
+            const QString value = args.at(i).section('=',1,-1);
+            if (key == "id")
+                id = value.toInt();
+            else if (key == "body")
+                body = value;
+            else if (key == "appname")
+                appName = value;
+            else if (key == "urgency") // low, normal, critical
+                hints["urgency"] = value;
+            else if (key == "timeout")
+                timeout = value.toInt();
+            else if (key == "icon")
+                appIcon = value;
+            else if (key == "image")
+                hints["image-path"] = value;
+            else if (key == "category")
+                hints["category"] = value;
+            else if (key == "actions") {
+                actions = value.split(',');
+                waitForClose = waitForAction = true;
+            }
+        }
+    }
+    vl << appName << id << appIcon << summary << body << actions << hints << timeout;
+    QDBusReply<uint> reply = notifications.callWithArgumentList(QDBus::Block, "Notify", vl);
+    if (reply.isValid()) {
+        if (waitForClose) {
+            DBusReceptor a(reply.value());
+            if (waitForAction)
+                QDBusConnection::sessionBus().connect("org.freedesktop.Notifications", "/org/freedesktop/Notifications",
+                                            "org.freedesktop.Notifications", "ActionInvoked", &a, SLOT(ActionInvoked(uint, QString)));
+            // unconditionally also to allow handling whatever happens
+            QDBusConnection::sessionBus().connect("org.freedesktop.Notifications", "/org/freedesktop/Notifications",
+                                            "org.freedesktop.Notifications", "NotificationClosed", &a, SLOT(NotificationClosed(uint, uint)));
+            return a.exec();
+        }
+        printf("%d\n", reply.value());
+        return 0;
+    }
+    return -1;
+}
+
 int main (int argc, char **argv)
 {
     QString command;
     QStringList parameters;
     bool isDaemon = false;
     if (argc > 1) {
-        QStringList validCommands = QString("daemon\nfilter\nreconfigure\ntoggle").split('\n');
+        QStringList validCommands = QString("daemon\nfilter\nreconfigure\ntoggle\nnotify").split('\n');
         command = QString::fromLocal8Bit(argv[1]);
         if (command == "qiq_daemon") {
             isDaemon = true;
@@ -74,6 +163,8 @@ int main (int argc, char **argv)
     if (!isDaemon && command.isEmpty() && session->isServiceRegistered("org.qiq.qiq"))
         command = "toggle";
     if (!command.isEmpty()) {
+        if (command == "notify")
+            return notify(parameters);
         if (!session->isServiceRegistered("org.qiq.qiq")) {
             if (!QProcess::startDetached(argv[0], QStringList() << "qiq_daemon"))
                 return 1;
