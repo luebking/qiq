@@ -19,6 +19,7 @@ public:
     bool isResident() const { return m_resident; }
     void setActions(const QStringList &actions, bool useIcons);
     void setBody(const QString &body);
+    void setCountdown(bool countdown);
     void setIcon(const QString &icon);
     void setImage(const QPixmap &pix);
     void setResident(bool resident) { m_resident = resident; }
@@ -31,11 +32,13 @@ signals:
 protected:
     void mouseReleaseEvent(QMouseEvent *event);
 private:
+    void countdown();
     QLabel *m_icon, *m_summary, *m_image, *m_body;
     QHBoxLayout *m_buttonLayout;
-    QTimer *m_timeout;
     uint m_id;
     bool m_resident;
+    QTimer *m_timeout, *m_countdown;
+    QString m_summaryString;
 };
 
 

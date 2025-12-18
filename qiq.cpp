@@ -96,6 +96,8 @@ int notify(const QStringList &args) {
             hints["resident"] = true;
         else if (args.at(i) == "wait")
             waitForClose = true;
+        else if (args.at(i) == "countdown")
+            hints["countdown"] = true;
         else {
             const QString key = args.at(i).section('=',0,0);
             const QString value = args.at(i).section('=',1,-1);

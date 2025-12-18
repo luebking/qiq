@@ -13,7 +13,7 @@
 #include <QWindow>
 #include "notifications.h"
 
-Notification::Notification(QWidget *parent, uint id) : QFrame(parent), m_id(id), m_resident(false) {
+Notification::Notification(QWidget *parent, uint id) : QFrame(parent), m_id(id), m_resident(false), m_countdown(nullptr) {
     QVBoxLayout *vl = new QVBoxLayout(this);
     QHBoxLayout *hl = new QHBoxLayout;
     hl->addWidget(m_icon = new QLabel(this));
@@ -58,6 +58,7 @@ void Notification::mouseReleaseEvent(QMouseEvent *event) {
 }
 
 void Notification::setSummary(const QString &summary) {
+    m_summaryString = summary;
     m_summary->setText(summary);
     m_summary->setVisible(!summary.isEmpty());
 }
@@ -76,10 +77,46 @@ void Notification::setIcon(const QString &icon) {
 }
 
 void Notification::setTimeout(int timeout) {
-    if (timeout > 0)
+    if (timeout > 0) {
         m_timeout->start(timeout);
-    else
+        setCountdown(m_countdown);
+    }
+    else {
         m_timeout->stop();
+        setCountdown(false);
+    }
+}
+
+void Notification::countdown() {
+    int remain = m_timeout->remainingTime();
+    QString s = m_summaryString;
+    if (remain > 60*60*1000) {
+        s.replace("%counter%", tr("%1 hours").arg(QString::number(remain/3600000.0f, 'f', 1)));
+        int spare = remain/3600000; spare = remain - 3600000*spare;
+        m_countdown->start(spare > 10 ? spare : 3600000 + spare);
+    } else if (remain > 60*1000) {
+        s.replace("%counter%", tr("%1 minutes").arg(qRound(remain/60000.0f)));
+        int spare = remain/60000; spare = remain - 60000*spare;
+        m_countdown->start(spare > 10 ? spare : 60000 + spare);
+    } else {
+        s.replace("%counter%", tr("%1 seconds").arg(qRound(remain/1000.0f)));
+        int spare = remain/1000; spare = remain - 1000*spare;
+        m_countdown->start(spare > 10 ? spare : 1000 + spare);
+    }
+    m_summary->setText(s);
+}
+
+void Notification::setCountdown(bool enabled) {
+    if (!enabled) {
+        delete m_countdown;
+        m_countdown = nullptr;
+        return;
+    }
+    if (!m_countdown) {
+        m_countdown = new QTimer(this);
+        connect(m_countdown, &QTimer::timeout, this, &Notification::countdown);
+    }
+    countdown();
 }
 
 void Notification::setImage(const QPixmap &pix) {
@@ -238,6 +275,7 @@ uint Notifications::add(QString app_name, uint replaces_id, QString app_icon, QS
 
     note->setActions(actions, HAS_HINT("action-icons") && it->toBool());
     note->setResident(HAS_HINT("resident") && it->toBool());
+    note->setCountdown(HAS_HINT("countdown") && it->toBool());
 
     layout()->addWidget(note);
     note->show();
