@@ -502,6 +502,7 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
             } else if (currentWidget() == m_list && m_list->model() == m_cmdHistory) {
                 m_list->setCurrentIndex(QModelIndex());
                 runInput();
+                m_input->setText(m_inputBuffer);
             } else if (m_input->isVisible()) {
                 m_input->clear();
                 m_input->hide(); // force
@@ -992,8 +993,6 @@ bool Qiq::runInput() {
         QModelIndex entry = m_list->currentIndex();
         if (entry.isValid())
             m_input->setText(entry.data().toString());
-        else
-            m_input->setText(m_inputBuffer);
         m_list->setModel(m_bins);
         setCurrentWidget(m_status);
         m_cmdHistory->setStringList(QStringList());
