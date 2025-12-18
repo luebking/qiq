@@ -1017,6 +1017,10 @@ bool Qiq::runInput() {
         m_autoHide.start(1000);
         return QProcess::startDetached("xdg-open", QStringList() << command);
     }
+    if (command.startsWith('"') && command.endsWith('"') && QFileInfo::exists(command.sliced(1,command.size()-2))) {
+        m_autoHide.start(1000);
+        return QProcess::startDetached("xdg-open", QStringList() << command.sliced(1,command.size()-2));
+    }
     // ============================================================================================================================
 
     // application list ===========================================================================================================
