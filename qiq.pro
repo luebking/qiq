@@ -1,5 +1,5 @@
-HEADERS = qiq.h gauge.h
-SOURCES = qiq.cpp gauge.cpp
+HEADERS = qiq.h gauge.h notifications.h
+SOURCES = qiq.cpp gauge.cpp notifications.cpp
 QT      += dbus gui widgets
 #lessThan(QT_MAJOR_VERSION, 6){
 #  unix:!macx:QT += x11extras

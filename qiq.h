@@ -5,6 +5,7 @@
 #include <QStackedWidget>
 #include <QTimer>
 
+class Notifications;
 class QFileSystemModel;
 class QStandardItemModel;
 class QStringListModel;
@@ -55,6 +56,7 @@ private:
     QTimer m_autoHide;
     QTimer *m_historySaver;
     QString m_historyPath;
+    Notifications *m_notifications;
 };
 
 class DBusAdaptor : public QDBusAbstractAdaptor

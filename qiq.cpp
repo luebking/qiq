@@ -29,6 +29,7 @@
 #include <QtDebug>
 
 #include "gauge.h"
+#include "notifications.h"
 #include "qiq.h"
 
 static QRegularExpression whitespace("[;&|[:space:]]+"); //[^\\\\]*
@@ -139,8 +140,10 @@ Qiq::Qiq() : QStackedWidget() {
     QDBusConnection::sessionBus().registerObject("/", this);
     new DBusAdaptor(this);
 //    qEnvironmentVariable(const char *varName, const QString &defaultValue)
-    setWindowFlags(Qt::BypassWindowManagerHint);
+    setWindowFlags(Qt::BypassWindowManagerHint|Qt::FramelessWindowHint|Qt::WindowStaysOnTopHint);
     addWidget(m_status = new QWidget);
+
+    m_notifications = new Notifications;
 
     m_external = nullptr;
     m_cmdCompleted = nullptr;
