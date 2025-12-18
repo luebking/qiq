@@ -905,8 +905,10 @@ void Qiq::printOutput(int exitCode) {
                     if (aha.waitForFinished(250))
                         stdout = aha.readAllStandardOutput();
                 }
+                output += "<pre>" + QString::fromLocal8Bit(stdout) + "</pre>";
+            } else {
+                output += "<pre>" + QString::fromLocal8Bit(stdout).toHtmlEscaped() + "</pre>";
             }
-            output += "<pre>" + QString::fromLocal8Bit(stdout) + "</pre>";
         }
     }
 
