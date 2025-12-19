@@ -192,10 +192,11 @@ QPixmap Notifications::pixmap(const QDBusArgument &iiibiiay) const
 
 QPixmap Notifications::pixmap(const QString &file) const
 {
+    if (QFile::exists(file))
+        return QPixmap(file);
     QUrl url(file);
-    if (url.isValid() && QFile::exists(url.toLocalFile())) {
+    if (url.isValid() && QFile::exists(url.toLocalFile()))
         return QPixmap(url.toLocalFile());
-    }
     return QIcon::fromTheme(file).pixmap(48);
 }
 
