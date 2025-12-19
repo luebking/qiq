@@ -233,7 +233,7 @@ Qiq::Qiq() : QStackedWidget() {
     QDBusConnection::sessionBus().registerObject("/", this);
     new DBusAdaptor(this);
 //    qEnvironmentVariable(const char *varName, const QString &defaultValue)
-    setWindowFlags(Qt::BypassWindowManagerHint|Qt::FramelessWindowHint|Qt::WindowStaysOnTopHint);
+    setWindowFlags(Qt::BypassWindowManagerHint/* |Qt::FramelessWindowHint|Qt::WindowStaysOnTopHint */);
     addWidget(m_status = new QWidget);
 
     m_notifications = new Notifications;

@@ -131,7 +131,7 @@ Notifications::Notifications() : QFrame() {
     QDBusConnection::sessionBus().registerObject("/org/freedesktop/Notifications", this);
     new NotiDaptor(this);
 //    qEnvironmentVariable(const char *varName, const QString &defaultValue)
-    setWindowFlags(Qt::BypassWindowManagerHint|Qt::FramelessWindowHint|Qt::WindowStaysOnTopHint);
+    setWindowFlags(Qt::BypassWindowManagerHint/* |Qt::FramelessWindowHint|Qt::WindowStaysOnTopHint */);
     m_id = 0;
     m_model = new QStandardItemModel(this);
     QVBoxLayout *vl = new QVBoxLayout(this);
