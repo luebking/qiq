@@ -636,7 +636,7 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
             setCurrentWidget(m_list);
             return true;
         }
-        if (key == Qt::Key_N && (static_cast<QKeyEvent*>(e)->modifiers() & (Qt::ControlModifier|Qt::ShiftModifier))) {
+        if (key == Qt::Key_N && (static_cast<QKeyEvent*>(e)->modifiers() & Qt::ControlModifier)) {
             m_input->clear();
             m_list->setModel(m_notifications->model());
             filter(QString(), Partial);
