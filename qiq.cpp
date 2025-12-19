@@ -643,7 +643,11 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
             setCurrentWidget(m_list);
             return true;
         }
-        if (key == Qt::Key_Delete && currentWidget() == m_list) {
+        if (key == Qt::Key_Delete && currentWidget() == m_list &&
+            // only if the user doesn't want to delete texr
+            !m_input->selectionLength() && m_input->cursorPosition() == m_input->text().size() &&
+            // … and valid indices
+            m_list->currentIndex().isValid()) {
             if (m_list->model() == m_cmdHistory) {
                 m_history.removeAll(m_list->currentIndex().data().toString());
                 m_cmdHistory->setStringList(m_history);
