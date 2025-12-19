@@ -1430,11 +1430,13 @@ QString Qiq::filterCustom(const QString source, const QString action, const QStr
 void Qiq::toggle() {
     if (!isVisible()) {
         show();
+        adjustGeometry();
         activateWindow();
         raise();
     } else if (isActiveWindow()) {
         hide();
     } else {
+        adjustGeometry();
         activateWindow();
         raise();
     }
