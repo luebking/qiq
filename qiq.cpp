@@ -331,7 +331,7 @@ Qiq::Qiq() : QStackedWidget() {
         fnt.setPointSize((2.0f-qMin(1.2f, text.size()/80.0f))*fnt.pointSize());
         m_input->setFont(fnt);
         if (currentWidget() == m_status && text.size() == 1) {
-            m_list->setModel(m_applications);
+            setModel(m_applications);
             filterInput();
             setCurrentWidget(m_list);
         }
@@ -521,6 +521,15 @@ void Qiq::adjustGeometry() {
     }
 }
 
+void Qiq::setModel(QAbstractItemModel *model) {
+    static QFont monospace("monospace");
+    m_list->setModel(model);
+    if (model == m_applications || model == m_notifications->model())
+        m_list->setFont(QFont());
+    else
+        m_list->setFont(monospace);
+}
+
 void Qiq::enterEvent(QEnterEvent *ee) {
     m_autoHide.stop(); // user interaction
     activateWindow();
@@ -534,18 +543,18 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
         if (key == Qt::Key_Tab) {
             if (m_input->text().isEmpty()) {
                 if (currentWidget() == m_status) {
-                    m_list->setModel(m_applications);
+                    setModel(m_applications);
                     filter(QString(), Partial);
                     setCurrentWidget(m_list);
                 } else if (currentWidget() == m_list) {
                     if (m_list->model() == m_applications) {
-                        m_list->setModel(m_bins);
+                        setModel(m_bins);
                         filter(QString(), Begin);
                     } else if (m_list->model() == m_bins) {
-                        m_list->setModel(m_external);
+                        setModel(m_external);
                         filter(QString(), Partial);
                     } else if (m_list->model() == m_external) {
-                        m_list->setModel(m_applications);
+                        setModel(m_applications);
                         setCurrentWidget(m_disp);
                     }
                 } else if (currentWidget() == m_disp) {
@@ -631,14 +640,14 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
         if (key == Qt::Key_R && (static_cast<QKeyEvent*>(e)->modifiers() & Qt::ControlModifier)) {
             m_inputBuffer = m_input->text();
             m_cmdHistory->setStringList(m_history);
-            m_list->setModel(m_cmdHistory);
+            setModel(m_cmdHistory);
             filter(m_inputBuffer, Partial);
             setCurrentWidget(m_list);
             return true;
         }
         if (key == Qt::Key_N && (static_cast<QKeyEvent*>(e)->modifiers() & Qt::ControlModifier)) {
             m_input->clear();
-            m_list->setModel(m_notifications->model());
+            setModel(m_notifications->model());
             filter(QString(), Partial);
             setCurrentWidget(m_list);
             return true;
@@ -710,7 +719,7 @@ void Qiq::explicitlyComplete() {
     QDir dir = fileInfo.dir();
     if (dir.exists() && (dir != QDir::current() || lastToken.contains('/'))) {
         setCurrentWidget(m_list);
-        m_list->setModel(m_files);
+        setModel(m_files);
         cycleResults = true;
         if (m_files->rootPath() == dir.absolutePath()) {
             insertToken();
@@ -751,13 +760,13 @@ void Qiq::explicitlyComplete() {
                     completions.removeLast();
                 completions.removeDuplicates();
                 m_cmdCompleted->setStringList(completions);
-                m_list->setModel(m_cmdCompleted);
+                setModel(m_cmdCompleted);
                 setCurrentWidget(m_list);
                 filterInput();
             }
         }
     } else {
-        m_list->setModel(m_bins);
+        setModel(m_bins);
         previousNeedle.clear();
         lastCmd = lastToken;
         stripInstruction(lastCmd);
@@ -1050,7 +1059,7 @@ void Qiq::printOutput(int exitCode) {
             const QStringList lines = output.split('\n');
             for (const QString &l : lines)
                 m_external->appendRow(new QStandardItem(l));
-            m_list->setModel(m_external);
+            setModel(m_external);
             filter(QString(), Partial);
             if (currentWidget() != m_list)
                 setCurrentWidget(m_list);
@@ -1123,7 +1132,7 @@ bool Qiq::runInput() {
         QModelIndex entry = m_list->currentIndex();
         if (entry.isValid())
             m_input->setText(entry.data().toString());
-        m_list->setModel(m_bins);
+        setModel(m_bins);
         setCurrentWidget(m_status);
         m_cmdHistory->setStringList(QStringList());
         m_autoHide.stop(); // SIC! Just in case it's running
@@ -1407,7 +1416,7 @@ QString Qiq::filterCustom(const QString source, const QString action, const QStr
         m_external->appendRow(item);
     }
     m_input->clear();
-    m_list->setModel(m_external);
+    setModel(m_external);
     setCurrentWidget(m_list);
     filter(QString(), Partial);
 //    ajdustGeometry();

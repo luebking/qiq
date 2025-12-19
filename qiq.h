@@ -7,6 +7,7 @@
 #include <QTimer>
 
 class Notifications;
+class QAbstractItemModel;
 class QFileSystemModel;
 class QStandardItemModel;
 class QStringListModel;
@@ -37,6 +38,7 @@ private:
     void message(const QString &string);
     void printOutput(int exitCode);
     bool runInput();
+    void setModel(QAbstractItemModel *model);
     void tokenUnderCursor(int &left, int &right);
     QListView *m_list;
     QTextBrowser *m_disp;
