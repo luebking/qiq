@@ -46,7 +46,7 @@ class Notifications : public QFrame {
     Q_OBJECT
 public:
     Notifications();
-    enum NotStuff { AppName = Qt::UserRole + 1, AppIcon, Body, Actions, Hints, Date, NoteWidget };
+    enum NotStuff { AppName = Qt::UserRole + 1, AppIcon, Body, Actions, Hints, Date, ID, NoteWidget };
     uint add(QString app_name, uint replaces_id, QString app_icon, QString summary, QString body, QStringList actions, QVariantMap hints, int expire_timeout);
     void adjustGeometry();
     void close(uint id, int reason);
@@ -54,10 +54,12 @@ public:
     QPixmap pixmap(const QDBusArgument &iiibiiay) const;
     QPixmap pixmap(const QString &file) const;
     void purge(uint id);
+    void recall(uint id);
 signals:
     void acted(uint id, QString action_key);
     void closed(uint id, uint reason);
 private:
+    void mapHints2Note(const QVariantMap &hints, Notification *note);
     uint m_id;
     QStandardItemModel *m_model;
     QMap<int, QStandardItem*> m_idMap;

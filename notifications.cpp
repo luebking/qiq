@@ -200,51 +200,8 @@ QPixmap Notifications::pixmap(const QString &file) const
     return QIcon::fromTheme(file).pixmap(48);
 }
 
-uint Notifications::add(QString app_name, uint replaces_id, QString app_icon, QString summary, QString body, QStringList actions, QVariantMap hints, int expire_timeout) {
-    QStandardItem *item = nullptr;
-    if (replaces_id) {
-        item = m_idMap.value(replaces_id, nullptr);
-    } else {
-        while (++m_id < INT_MAX && m_idMap.contains(m_id)) {
-            if (m_id == INT_MAX-1)
-                m_id = 0; // I don't like the infinite loop but we're also talking about storage limits that need to be addressed anyway
-        }
-        replaces_id = m_id;
-    }
-    if (!item) {
-        item = new QStandardItem;
-        m_model->appendRow(item);
-        m_idMap.insert(replaces_id, item);
-    }
-    item->setText(summary);
-    item->setToolTip(body);
-    item->setData(app_name, AppName);
-    item->setData(app_icon, AppIcon);
-    item->setData(actions, Actions);
-    item->setData(hints, Hints);
-    item->setData(QDateTime::currentSecsSinceEpoch(), Date);
-    Notification *note = item->data(NoteWidget).value<Notification*>();
-    if (!note) {
-        note = new Notification(this, replaces_id);
-        item->setData(QVariant::fromValue(note), NoteWidget);
-        connect(note, &Notification::acted, [=](QString action_key) {
-            emit acted(note->id(), action_key);
-            if (!note->isResident()) {
-                close(note->id(), 2); // The notification was dismissed by the user
-            }
-        });
-        connect(note, &Notification::ditched, [=]() {
-            close(note->id(), 2); // The notification was dismissed by the user
-        });
-        connect(note, &Notification::timedOut, [=]() {
-            close(note->id(), 1); // The notification expired.
-        });
-    }
-    note->setSummary(summary);
-    note->setBody(body);
-    note->setIcon(app_icon);
-    note->setTimeout(expire_timeout);
 #define HAS_HINT(_H_) (it = hints.constFind(_H_)) != hints.constEnd()
+void Notifications::mapHints2Note(const QVariantMap &hints, Notification *note) {
     QVariantMap::const_iterator	it;
     if (HAS_HINT("image-data"))
         note->setImage(pixmap(it->value<QDBusArgument>()));
@@ -273,7 +230,57 @@ uint Notifications::add(QString app_name, uint replaces_id, QString app_icon, QS
 
     if (HAS_HINT("category"))
         note->setProperty("category", it->toString());
+}
 
+uint Notifications::add(QString app_name, uint replaces_id, QString app_icon, QString summary, QString body, QStringList actions, QVariantMap hints, int expire_timeout) {
+    QStandardItem *item = nullptr;
+    if (replaces_id) {
+        item = m_idMap.value(replaces_id, nullptr);
+    } else {
+        while (++m_id < INT_MAX && m_idMap.contains(m_id)) {
+            if (m_id == INT_MAX-1)
+                m_id = 0; // I don't like the infinite loop but we're also talking about storage limits that need to be addressed anyway
+        }
+        replaces_id = m_id;
+    }
+    if (!item) {
+        item = new QStandardItem;
+        m_model->appendRow(item);
+        m_idMap.insert(replaces_id, item);
+    }
+    item->setText(summary);
+    item->setToolTip(body);
+    item->setData(app_name, AppName);
+    item->setData(app_icon, AppIcon);
+    item->setData(actions, Actions);
+    item->setData(hints, Hints);
+    item->setData(QDateTime::currentSecsSinceEpoch(), Date);
+    item->setData(replaces_id, ID);
+    Notification *note = item->data(NoteWidget).value<Notification*>();
+    if (!note) {
+        note = new Notification(this, replaces_id);
+        item->setData(QVariant::fromValue(note), NoteWidget);
+        connect(note, &Notification::acted, [=](QString action_key) {
+            emit acted(note->id(), action_key);
+            if (!note->isResident()) {
+                close(note->id(), 2); // The notification was dismissed by the user
+            }
+        });
+        connect(note, &Notification::ditched, [=]() {
+            close(note->id(), 2); // The notification was dismissed by the user
+        });
+        connect(note, &Notification::timedOut, [=]() {
+            close(note->id(), 1); // The notification expired.
+        });
+    }
+    note->setSummary(summary);
+    note->setBody(body);
+    note->setIcon(app_icon);
+    note->setTimeout(expire_timeout);
+    mapHints2Note(hints, note);
+
+    // these don't make sense on recalls
+    QVariantMap::const_iterator	it;
     note->setActions(actions, HAS_HINT("action-icons") && it->toBool());
     note->setResident(HAS_HINT("resident") && it->toBool());
     note->setCountdown(HAS_HINT("countdown") && it->toBool());
@@ -314,7 +321,8 @@ void Notifications::close(uint id, int reason) {
             m_model->removeRows(item->row(), 1, dad);
             m_idMap.remove(id);
         }
-        emit closed(id, reason);
+        if (reason)
+            emit closed(id, reason);
     }
 }
 
@@ -324,5 +332,27 @@ void Notifications::purge(uint id) {
         QModelIndex dad = item->parent() ? item->parent()->index() : QModelIndex();
         m_model->removeRows(item->row(), 1, dad);
         m_idMap.remove(id);
+    }
+}
+
+void Notifications::recall(uint id) {
+    if (QStandardItem *item = m_idMap.value(id, nullptr)) {
+        Notification *note = item->data(NoteWidget).value<Notification*>();
+        if (!note) {
+            note = new Notification(this, id);
+            connect(note, &Notification::ditched, [=]() {
+                close(note->id(), 0); // The notification was dismissed by the user, but don't emit a reason
+            });
+            item->setData(QVariant::fromValue(note), NoteWidget);
+            note->setSummary(item->text());
+            note->setBody(item->toolTip());
+            note->setIcon(item->data(AppIcon).toString());
+            // not actions, the user has dismissed the notification and the client might be confused about subsequent actions
+            mapHints2Note(item->data(Hints).value<QVariantMap>(), note);
+            layout()->addWidget(note);
+        }
+        note->show();
+        show();
+        adjustGeometry();
     }
 }

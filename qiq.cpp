@@ -321,7 +321,7 @@ Qiq::Qiq() : QStackedWidget() {
     connect(m_input, &QLineEdit::textChanged, [=](const QString &text) {
         if (text.isEmpty()) {
             m_input->hide();
-            if (currentWidget() == m_list && m_list->model() == m_external)
+            if (currentWidget() == m_list && (m_list->model() == m_external || m_list->model() == m_notifications->model()))
                 return;
             if (currentWidget() != m_disp)
                 setCurrentWidget(m_status);
@@ -606,6 +606,8 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
                 if (!m_wasVisble)
                     hide();
                 setCurrentWidget(m_status);
+            } else if (currentWidget() == m_list && m_list->model() == m_notifications->model()) {
+                setCurrentWidget(m_status);
             } else { //QApplication::quit();
                 m_externalReply = QString(""); // empt, not null!
                 hide();
@@ -630,13 +632,24 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
             m_inputBuffer = m_input->text();
             m_cmdHistory->setStringList(m_history);
             m_list->setModel(m_cmdHistory);
+            filter(m_inputBuffer, Partial);
+            setCurrentWidget(m_list);
+            return true;
+        }
+        if (key == Qt::Key_N && (static_cast<QKeyEvent*>(e)->modifiers() & (Qt::ControlModifier|Qt::ShiftModifier))) {
+            m_input->clear();
+            m_list->setModel(m_notifications->model());
             filter(QString(), Partial);
             setCurrentWidget(m_list);
             return true;
         }
-        if (key == Qt::Key_Delete && currentWidget() == m_list && m_list->model() == m_cmdHistory) {
-            m_history.removeAll(m_list->currentIndex().data().toString());
-            m_cmdHistory->setStringList(m_history);
+        if (key == Qt::Key_Delete && currentWidget() == m_list) {
+            if (m_list->model() == m_cmdHistory) {
+                m_history.removeAll(m_list->currentIndex().data().toString());
+                m_cmdHistory->setStringList(m_history);
+            } else if (m_list->model() == m_notifications->model()) {
+                m_notifications->purge(m_list->currentIndex().data(Notifications::ID).toUInt());
+            }
         }
         if (!m_input->isVisible() && static_cast<QKeyEvent*>(e)->text().isEmpty()) {
             QApplication::sendEvent(currentWidget(), e);
@@ -786,6 +799,24 @@ void Qiq::filter(const QString needle, MatchType matchType) {
                 for (const QString &key : keys) {
                     if ((vis = key.contains(token, Qt::CaseInsensitive))) break;
                 }
+                if (!vis) break;
+            }
+            if (vis) {
+                m_lastVisibleRow = i;
+                if (firstVisRow < 0)
+                    firstVisRow = i;
+            }
+            m_list->setRowHidden(i, !(vis && ++visible));
+        }
+    } else if (m_list->model() == m_notifications->model()) {
+        QStringList tokens = needle.split(whitespace);
+        for (int i = 0; i < rows; ++i) {
+            const QModelIndex idx = m_list->model()->index(i, 0, m_list->rootIndex());
+            bool vis = false;
+            for (const QString &token : tokens) {
+                if ((vis = idx.data().toString().contains(token, Qt::CaseInsensitive))) continue;
+                if ((vis = idx.data(Qt::ToolTipRole).toString().contains(token, Qt::CaseInsensitive))) continue;
+                if ((vis = idx.data(Notifications::AppName).toString().contains(token, Qt::CaseInsensitive))) continue;
                 if (!vis) break;
             }
             if (vis) {
@@ -1093,6 +1124,16 @@ bool Qiq::runInput() {
         m_cmdHistory->setStringList(QStringList());
         m_autoHide.stop(); // SIC! Just in case it's running
         return false; // SIC! we don't want the input to be accepted, just changed
+    }
+    // =============================================================================================================================
+
+    // recall notification =========================================================================================================
+    if (currentModel == m_notifications->model()) {
+        QModelIndex entry = m_list->currentIndex();
+        if (entry.isValid())
+            m_notifications->recall(entry.data(Notifications::ID).toUInt());
+        m_autoHide.stop(); // SIC! Just in case it's running
+        return false; // SIC! the user might want to see more notifications
     }
     // =============================================================================================================================
 
