@@ -277,6 +277,7 @@ uint Notifications::add(QString app_name, uint replaces_id, QString app_icon, QS
     note->setBody(body);
     note->setIcon(app_icon);
     note->setTimeout(expire_timeout);
+    note->setProperty("appname", app_name);
     mapHints2Note(hints, note);
 
     // these don't make sense on recalls
