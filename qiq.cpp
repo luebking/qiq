@@ -241,6 +241,7 @@ Qiq::Qiq() : QStackedWidget() {
     m_external = nullptr;
     m_cmdCompleted = nullptr;
     m_historySaver = nullptr;
+    m_todoDirty = false;
 
     addWidget(m_list = new QListView);
     m_list->setFrameShape(QFrame::NoFrame);
@@ -271,6 +272,32 @@ Qiq::Qiq() : QStackedWidget() {
         else
             disconnect(m_input, &QLineEdit::textEdited, this, &Qiq::filterInput);
     });
+
+    addWidget(m_todo = new QTextEdit);
+    m_todo->setToolTip(tr("<h2>Noteboook</h2>"
+        "Lines starting with a time/date before a \"|\" will automatically add reminders<br>"
+        "Examples:<ul>"
+        "<li>9:15 | Meeting</li>"
+        "<li>1pm | lunch</li>"
+        "<li>Friday | Happy Hour</li>"
+        "<li>24. 12. | Christkind</li>"
+        "<li>12/26 | Boxing Day</li>"
+        "<li>13. Januar | Knut</li>"
+        "</ul>"));
+    m_todo->setAutoFormatting(QTextEdit::AutoAll);
+    m_todo->setFocusPolicy(Qt::ClickFocus);
+    connect(m_todo, &QTextEdit::textChanged, [=]() { m_todoDirty = true; });
+    QAction *act = new QAction(m_todo);
+    act->setShortcut(Qt::Key_Escape);
+    connect(act, &QAction::triggered, [=]() {
+        setCurrentWidget(m_status);
+        if (m_todoDirty) {
+            updateTodoTimers();
+            /// @todo save file
+            m_todoDirty = false;
+        }
+        });
+    m_todo->addAction(act);
 
     reconfigure();
 
@@ -350,6 +377,134 @@ Qiq::Qiq() : QStackedWidget() {
     m_autoHide.setInterval(3000);
     m_autoHide.setSingleShot(true);
     connect(&m_autoHide, &QTimer::timeout, this, &QWidget::hide);
+}
+
+void Qiq::updateTodoTimers() {
+    for (const QTimer *t : m_todoTimers)
+        delete t;
+    m_todoTimers.clear();
+    QStringList lines = m_todo->toPlainText().split('\n');
+    for (const QString &line : lines) {
+        const int pipe = line.indexOf('|');
+        if (pipe < 0)
+            continue;
+        QString head = line.left(pipe).trimmed();
+        QStringList tokens = head.split(QRegularExpression("\\s"), Qt::SkipEmptyParts);
+        static const QRegularExpression hmm("\\d{1,2}:\\d\\d");
+        static const QRegularExpression MD("\\d{1,2}/\\d{1,2}");
+        int hour(-1), minute(-1), day(0), month(0), weekday(0);
+        QRegularExpressionMatch match;
+        for (const QString &t : tokens) {
+            if (hour < 0 && minute < 0 && t.contains(':')) { // time ?
+                match = hmm.match(t);
+                if (match.hasMatch()) {
+                    hour = match.captured(0).section(':', 0, 0).toInt();
+                    if (hour > 24) // 24:00 is probably a thing
+                        hour = -1;
+                    minute = match.captured(0).section(':', 1, 1).toInt();
+                    if (minute > 59)
+                        minute = -1;
+                if (hour > 0 && hour < 13 && t.endsWith(QLocale::system().pmText(), Qt::CaseInsensitive))
+                    hour += 12;
+                continue;
+                }
+            }
+            if (!day && !month && t.contains('/')) { // US date ?
+                match = MD.match(t);
+                if (match.hasMatch()) {
+                    month = match.captured(0).section('/', 0, 0).toInt();
+                    day = match.captured(0).section('/', 1, 1).toInt();
+                    if (month > 12 || day > 31)
+                        month = day = 0;
+                }
+            }
+            if ((!day || !month) && t.endsWith('.')) { // EUR day or month
+                bool ok;
+                int n = t.left(t.size()-1).toInt(&ok);
+                if (ok) {
+                    if (!day && n < 32)
+                        day = n;
+                    else if (day && n < 13)
+                        month = n;
+                }
+                continue;
+            }
+            if (t.endsWith(QLocale::system().amText(), Qt::CaseInsensitive)) {
+                bool ok;
+                int n = t.left(t.size()-QLocale::system().amText().size()).toInt(&ok);
+                if (ok && n < 13)
+                    hour = n;
+                continue;
+            }
+            if (t.endsWith(QLocale::system().pmText(), Qt::CaseInsensitive)) {
+                bool ok;
+                int n = t.left(t.size() - QLocale::system().pmText().size()).toInt(&ok);
+                if (ok && n < 13)
+                    hour = n + 12;
+                continue;
+            }
+            if (!weekday) {
+                for (int i = 1; i < 8; ++i) {
+                    if (t.startsWith(QLocale::system().dayName(i, QLocale::ShortFormat).remove('.'))) {
+                        weekday = i; break;
+                    }
+                }
+                if (weekday)
+                    continue;
+            }
+            if (!month) {
+                for (int i = 1; i < 13; ++i) {
+                    if (t.startsWith(QLocale::system().monthName(i, QLocale::ShortFormat).remove('.'))) {
+                        month = i; break;
+                    }
+                }
+                if (month)
+                    continue;
+            }
+        }
+        if (hour < 0 && minute < 0 && !day && !month && !weekday)
+            continue; // not a date after all
+        QTime t;
+        if (hour > -1)
+            t.setHMS(hour, 0, 0);
+        if (minute > -1)
+            t.setHMS(t.hour(), minute, 0);
+        if (!t.isValid())
+            t.setHMS(9, 30, 0);
+        QDate d = QDate::currentDate();
+        if (!day && weekday) {
+            int days = weekday - d.dayOfWeek();
+            if (days < 0)
+                days += 7;
+            d = d.addDays(days);
+        }
+        if (day)
+            d.setDate(d.year(), d.month(), day);
+        if (month)
+            d.setDate(d.year(), month, d.day());
+        else if (day && d < QDate::currentDate())
+            d = d.addMonths(1); // next month
+        QDateTime dt(d, t);
+        if (dt < QDateTime::currentDateTime()) {
+           if (!day && !month && !weekday)
+                dt = dt.addDays(1);
+           else if (QDateTime::currentDateTime().msecsTo(dt) < 86400000)
+               dt = dt.addYears(1);
+       }
+       QTimer *timer = new QTimer(this);
+       m_todoTimers << timer;
+       timer->setSingleShot(true);
+       timer->setProperty("summary", tr("Qiq reminder: ") + head);
+       timer->setProperty("body", line.right(pipe + 1).trimmed());
+       connect (timer, &QTimer::timeout, [=]() {
+           notifyUser(timer->property("summary").toString(), timer->property("body").toString());
+           m_todoTimers.removeAll(timer);
+           timer->deleteLater();
+       });
+       timer->start(QDateTime::currentDateTime().msecsTo(dt));
+//        qDebug() << "=>" << dt << QDateTime::currentDateTime().msecsTo(dt);
+//        qDebug() << hour << minute << day << month << weekday;
+    }
 }
 
 void Qiq::reconfigure() {
@@ -492,6 +647,12 @@ void Qiq::makeApplicationModel() {
     }
 }
 
+void Qiq::notifyUser(const QString &summary, const QString &body) {
+    QVariantMap hints;
+    hints["transient"] = true;
+    m_notifications->add("Qiq", 0, "qiq", summary, body, QStringList(), hints, 0);
+}
+
 void Qiq::adjustGeometry() {
     if (currentWidget() != m_disp) {
         m_disp->setMinimumSize(QSize(0,0));
@@ -617,6 +778,9 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
                 setCurrentWidget(m_status);
             } else if (currentWidget() == m_list && m_list->model() == m_notifications->model()) {
                 setCurrentWidget(m_status);
+            } else if (currentWidget() == m_todo) {
+                /// @todo parse and save todo
+                setCurrentWidget(m_status);
             } else { //QApplication::quit();
                 m_externalReply = QString(""); // empt, not null!
                 hide();
@@ -650,6 +814,12 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
             setModel(m_notifications->model());
             filter(QString(), Partial);
             setCurrentWidget(m_list);
+            return true;
+        }
+        if (key == Qt::Key_T && (static_cast<QKeyEvent*>(e)->modifiers() & Qt::ControlModifier)) {
+            m_input->clear();
+            setCurrentWidget(m_todo);
+            m_todo->setFocus();
             return true;
         }
         if (key == Qt::Key_Delete && currentWidget() == m_list &&

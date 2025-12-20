@@ -13,6 +13,7 @@ class QStandardItemModel;
 class QStringListModel;
 class QListView;
 class QTextBrowser;
+class QTextEdit;
 class QLineEdit;
 
 class Qiq : public QStackedWidget {
@@ -36,10 +37,12 @@ private:
     void insertToken();
     void makeApplicationModel();
     void message(const QString &string);
+    void notifyUser(const QString &summary, const QString &body);
     void printOutput(int exitCode);
     bool runInput();
     void setModel(QAbstractItemModel *model);
     void tokenUnderCursor(int &left, int &right);
+    void updateTodoTimers();
     QListView *m_list;
     QTextBrowser *m_disp;
     QLineEdit *m_input;
@@ -60,6 +63,9 @@ private:
     QTimer *m_historySaver;
     QString m_historyPath;
     Notifications *m_notifications;
+    QTextEdit *m_todo;
+    QList<QTimer*> m_todoTimers;
+    bool m_todoDirty;
 };
 
 class DBusAdaptor : public QDBusAbstractAdaptor
