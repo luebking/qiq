@@ -189,6 +189,7 @@ Qiq::Qiq() : QStackedWidget() {
     setCurrentWidget(m_status);
     adjustGeometry();
     activateWindow();
+    raise();
     setUpdatesEnabled(true);
     connect(m_input, &QLineEdit::textChanged, [=](const QString &text) {
         if (text.isEmpty()) {
@@ -1445,10 +1446,10 @@ QString Qiq::filterCustom(const QString source, const QString action, const QStr
     setModel(m_external);
     setCurrentWidget(m_list);
     filter(QString(), Partial);
-//    ajdustGeometry();
     m_wasVisble = isVisible();
     show();
     activateWindow();
+    raise();
     if (m_externCmd.startsWith("%print")) {
         m_externalReply = QString();
         QElapsedTimer time;
