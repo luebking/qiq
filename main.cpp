@@ -19,6 +19,7 @@
 #include <QApplication>
 #include <QElapsedTimer>
 #include <QProcess>
+#include <QRegularExpression>
 #include <QStyle>
 #include <QStyleFactory>
 #include <QThread>
@@ -96,8 +97,18 @@ Example:
 }
 
 void help() {
-    printf("Usage: %s [daemon|filter <file> [<action> [<field separator>]|notify <summary> [<features>]|reconfigure|toggle]\n", gs_appname);
+    printf(
+"Usage:     %s countdown <timeout> [<message>]\n"
+"           %s daemon\n"
+"           %s filter <file> [<action> [<field separator>]]\n"
+"           %s notify <summary> [<features>]\n"
+"           %s reconfigure\n"
+"           %s toggle\n", gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname);
     printf(R"(-------------------------------------------------------------------------------------------------------------------
+countdown   Run a countdown notification with optional message.
+            Either fragment of h:m.s or XhYmZs will work (5.30 or 5m30s)
+            A single number without any suffix is accepted as milliseconds.
+
 daemon      Explicitly fork a daemon process, immediately exits
 
 filter      filter <file> [<action> [<field separator>]
@@ -206,7 +217,7 @@ int main (int argc, char **argv)
     QStringList parameters;
     bool isDaemon = false;
     if (argc > 1) {
-        QStringList validCommands = QString("daemon\nfilter\nreconfigure\ntoggle\nnotify").split('\n');
+        QStringList validCommands = QString("countdown\ndaemon\nfilter\nreconfigure\ntoggle\nnotify").split('\n');
         command = QString::fromLocal8Bit(argv[1]);
         if (command == "qiq_daemon") {
             isDaemon = true;
@@ -223,6 +234,48 @@ int main (int argc, char **argv)
     if (!isDaemon && command.isEmpty() && session->isServiceRegistered("org.qiq.qiq"))
         command = "toggle";
     if (!command.isEmpty()) {
+        if (command == "countdown") {
+            command = "notify";
+            if (parameters.count() < 1) {
+                printf("%s <time> [<message>]\n", gs_appname);
+                return 1;
+            }
+            QString timeout = parameters.takeFirst();
+            int ms = 0;
+            bool ok;
+            const QRegularExpression hour("\\d+[h:]"), minute("\\d+[m\\.]"), second("\\d+s");
+            QRegularExpressionMatch match;
+            match = hour.match(timeout);
+            if (match.hasMatch()) {
+                int v = match.captured(0).chopped(1).toUInt(&ok);
+                if (ok)
+                    ms += v*60*60*1000;
+            }
+            match = minute.match(timeout);
+            if (match.hasMatch()) {
+                int v = match.captured(0).chopped(1).toUInt(&ok);
+                if (ok)
+                    ms += v*60*1000;
+            }
+            match = second.match(timeout);
+            if (match.hasMatch()) {
+                int v = match.captured(0).chopped(1).toUInt(&ok);
+                if (ok)
+                    ms += v*1000;
+            }
+            if (!ms) {
+                ms = timeout.toUInt(&ok);
+                if (!ok) {
+                    qDebug() << "invalid timeout" << timeout;
+                    return 1;
+                }
+            }
+            if (parameters.isEmpty())
+                parameters << "%counter%";
+            else
+                parameters[0] += QObject::tr(" in %counter%");
+            parameters << "timeout=" + QString::number(ms) << "transient" << "countdown";
+        }
         if (command == "notify")
             return notify(parameters);
         if (!session->isServiceRegistered("org.qiq.qiq")) {
