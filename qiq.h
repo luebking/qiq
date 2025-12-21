@@ -24,6 +24,7 @@ public:
     void reconfigure();
     void toggle();
     void writeHistory();
+    void writeTodoList();
 protected:
     void enterEvent(QEnterEvent *ee) override;
     bool eventFilter(QObject *o, QEvent *e) override;
@@ -65,7 +66,9 @@ private:
     Notifications *m_notifications;
     QTextEdit *m_todo;
     QList<QTimer*> m_todoTimers;
-    bool m_todoDirty;
+    bool m_todoDirty, m_todoSaved;
+    QString m_todoPath;
+    QTimer *m_todoSaver;
 };
 
 class DBusAdaptor : public QDBusAbstractAdaptor

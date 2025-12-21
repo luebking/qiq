@@ -41,8 +41,10 @@ static void sighandler(int signum) {
         case SIGINT:
 //        case SIGSEGV:
         case SIGTERM:
-            if (gs_qiq)
+            if (gs_qiq) {
+                gs_qiq->writeTodoList();
                 gs_qiq->writeHistory();
+            }
             break;
         default:
             break;
@@ -241,7 +243,9 @@ Qiq::Qiq() : QStackedWidget() {
     m_external = nullptr;
     m_cmdCompleted = nullptr;
     m_historySaver = nullptr;
+    m_todoSaver = nullptr;
     m_todoDirty = false;
+    m_todoSaved = true;
 
     addWidget(m_list = new QListView);
     m_list->setFrameShape(QFrame::NoFrame);
@@ -274,6 +278,7 @@ Qiq::Qiq() : QStackedWidget() {
     });
 
     addWidget(m_todo = new QTextEdit);
+    m_todo->setObjectName("TODO");
     m_todo->setToolTip(tr("<h2>Noteboook</h2>"
         "Lines starting with a time/date before a \"|\" will automatically add reminders<br>"
         "Examples:<ul>"
@@ -284,7 +289,7 @@ Qiq::Qiq() : QStackedWidget() {
         "<li>12/26 | Boxing Day</li>"
         "<li>13. Januar | Knut</li>"
         "</ul>"));
-    m_todo->setAutoFormatting(QTextEdit::AutoAll);
+//    m_todo->setAutoFormatting(QTextEdit::AutoAll);
     m_todo->setFocusPolicy(Qt::ClickFocus);
     connect(m_todo, &QTextEdit::textChanged, [=]() { m_todoDirty = true; });
     QAction *act = new QAction(m_todo);
@@ -292,8 +297,19 @@ Qiq::Qiq() : QStackedWidget() {
     connect(act, &QAction::triggered, [=]() {
         setCurrentWidget(m_status);
         if (m_todoDirty) {
+            m_todoSaved = false;
             updateTodoTimers();
-            /// @todo save file
+            if (m_todoSaver) {
+                if (m_todoSaver->remainingTime() < 4*m_todoSaver->interval()/5) { // when the timer has 80% left, we just let it run out
+                    static int bumpCounter = 0;
+                    if (++bumpCounter > 4) { // we've bumped this for maximum 15 minutes now
+                        bumpCounter = 0;
+                        writeTodoList(); // so save the history
+                    } else { // delay
+                        m_todoSaver->start();
+                    }
+                }
+            }
             m_todoDirty = false;
         }
         });
@@ -307,6 +323,16 @@ Qiq::Qiq() : QStackedWidget() {
             m_history = QString::fromUtf8(f.readAll()).split('\n');
         } else {
             qDebug() << "could not open" << m_historyPath << "for reading";
+        }
+    }
+    if (!m_todoPath.isEmpty()) {
+        QFile f(m_todoPath);
+        if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            m_todo->setPlainText(QString::fromUtf8(f.readAll()));
+            m_todoDirty = false;
+            m_todoSaved = true;
+        } else {
+            qDebug() << "could not open" << m_todoPath << "for reading";
         }
     }
 
@@ -388,7 +414,9 @@ void Qiq::updateTodoTimers() {
         const int pipe = line.indexOf('|');
         if (pipe < 0)
             continue;
-        QString head = line.left(pipe).trimmed();
+        static const QRegularExpression bullet("^\\s*(\\*|\\+|-|·|°)\\s");
+        QString head = line.left(pipe).remove(bullet).trimmed();
+
         QStringList tokens = head.split(QRegularExpression("\\s"), Qt::SkipEmptyParts);
         static const QRegularExpression hmm("\\d{1,2}:\\d\\d");
         static const QRegularExpression MD("\\d{1,2}/\\d{1,2}");
@@ -526,6 +554,14 @@ void Qiq::reconfigure() {
         m_historySaver->setSingleShot(true);
         m_historySaver->setInterval(300000); // 5 minutes
         connect(m_historySaver, &QTimer::timeout, this, &Qiq::writeHistory);
+    }
+    m_todoPath = settings.value("TodoPath",
+                QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + QDir::separator() + "todo.txt").toString();
+    if (!m_todoPath.isEmpty() && !m_todoSaver) {
+        m_todoSaver = new QTimer(this);
+        m_todoSaver->setSingleShot(true);
+        m_todoSaver->setInterval(300000); // 5 minutes
+        connect(m_todoSaver, &QTimer::timeout, this, &Qiq::writeTodoList);
     }
 
     QFont gaugeFont = QFont(settings.value("GaugeFont").toString());
@@ -1629,5 +1665,17 @@ void Qiq::writeHistory() {
         f.write(m_history.join('\n').toUtf8());
     } else {
         qDebug() << "could not open" << m_historyPath << "for writing";
+    }
+}
+
+void Qiq::writeTodoList() {
+    if (m_todoPath.isEmpty() || m_todoSaved) // allow deleting notes
+        return;
+    QFile f(m_todoPath);
+    if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        f.write(m_todo->toPlainText().toUtf8());
+        m_todoSaved = true;
+    } else {
+        qDebug() << "could not open" << m_todoPath << "for writing";
     }
 }
