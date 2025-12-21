@@ -1479,6 +1479,7 @@ QString Qiq::filterCustom(const QString source, const QString action, const QStr
 
 void Qiq::toggle() {
     if (!isVisible()) {
+        m_wasVisble = true;
         show();
         adjustGeometry();
         activateWindow();
