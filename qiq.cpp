@@ -880,7 +880,8 @@ void Qiq::filter(const QString needle, MatchType matchType) {
     } else { // if (matchType == Partial)
         QStringList sl = needle.split(whitespace, Qt::SkipEmptyParts);
         for (int i = 0; i < rows; ++i) {
-            const QString &hay = m_list->model()->index(i, 0, m_list->rootIndex()).data().toString();
+            QModelIndex index = m_list->model()->index(i, 0, m_list->rootIndex());
+            const QString &hay = index.data().toString();
             bool vis = true;
             for (const QString &s : sl) {
                 if (!hay.contains(s, Qt::CaseInsensitive)) {
@@ -888,12 +889,25 @@ void Qiq::filter(const QString needle, MatchType matchType) {
                     break;
                 }
             }
+            int score = 0;
             if (vis) {
+                score = 1;
+                if (hay.startsWith(needle))
+                    score = 100;
+                else if (hay.contains(needle))
+                    score = 50;
+            }
+            m_list->model()->setData(index, score, MatchScore);
+            m_list->setRowHidden(i, !(vis && ++visible));
+        }
+        m_list->model()->sort(MatchScore, Qt::DescendingOrder);
+        // sorting unfortunately trashes the order
+        for (int i = 0; i < rows; ++i) {
+            if (!m_list->isRowHidden(i)) {
                 m_lastVisibleRow = i;
                 if (firstVisRow < 0)
                     firstVisRow = i;
             }
-            m_list->setRowHidden(i, !(vis && ++visible));
         }
         shrink = previousNeedle.contains(needle, Qt::CaseInsensitive);
     }

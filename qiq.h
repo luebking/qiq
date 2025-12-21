@@ -48,7 +48,7 @@ protected:
     bool eventFilter(QObject *o, QEvent *e) override;
 private:
     enum MatchType { Begin = 0, Partial };
-    enum AppStuff { AppExec = Qt::UserRole + 1, AppComment, AppPath, AppNeedsTE, AppCategories, AppKeywords };
+    enum AppStuff { AppExec = Qt::UserRole + 1, AppComment, AppPath, AppNeedsTE, AppCategories, AppKeywords, MatchScore };
     void adjustGeometry();
     void explicitlyComplete();
     void filter(const QString needle, MatchType matchType);
