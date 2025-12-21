@@ -1,0 +1,25 @@
+/* ~/local/share/qiq/default.css */
+/* https://doc.qt.io/qt-6/stylesheet.html */
+
+/* Runner style, the main window is a QStackedWidget */
+QStackedWidget { color: #fafafa; background-color: #272727; }
+QLineEdit { color: #fff; background-color: #99272727; border-radius: 1em; }
+QScrollBar, QScrollBar::add-line, QScrollBar::sub-line { color: transparent; background-color: transparent; }
+QScrollBar::vertical { width: 4px; }
+QScrollBar::horizontal { height: 4px; }
+QScrollBar::handle { color: #666; background-color: #666; }
+/* TODO is the object name of the todo texteditor, so we don't catch the command output*/
+QTextEdit#TODO { font-family:"Hapole Pencil"; font-size:16pt; }
+
+/* Notification style */
+Notifications { color: #fafafa; background-color: #161616; padding: 2px; }
+Notification { color: #fafafa; background-color: #272727; }
+
+/* you can control the body and summery independently */
+Notification QLabel[role=summary] {font-size: 18pt;}
+Notification QLabel[role=body] {color: #aaa;}
+
+/* urgency, category and appname are valid properties for style selectors */
+Notification[urgency=low] { color: #999; background-color: #272727; }
+Notification[category=sleep] { color: #fafafa; background-color: #ffb31c; }
+Notification[appname=low] { color: #999; background-color: #272727; }

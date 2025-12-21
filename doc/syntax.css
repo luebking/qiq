@@ -1,0 +1,76 @@
+/*body {  background-color: white;  }*/
+/* syntax-highlight */
+.keyword { color: #1793d0; font-weight: bold; }
+.type, .classname { color: #17d092; }
+.string { color: #8cc716; font-family: monospace; }
+.regexp { color: #ffb31c; }
+.specialchar { color: #d01792; font-family: monospace; }
+.comment { color: #888; font-style: italic; }
+.number { color: #17d092; }
+.preproc { color: #d01792; font-weight: bold; }
+.symbol { color: #d01792; }
+.function { font-weight: bold; }
+.cbracket { color: #d09217; }
+.todo { font-weight: bold; color: #d01717; }
+
+/* line numbers */
+.linenum { color: #888; font-family: monospace; }
+
+/* Internet related */
+.url { color: #1793d0; text-decoration: underline; font-family: monospace; }
+
+/* other elements for ChangeLog and Log files */
+.date { color: #1793d0; font-weight: bold; }
+.time, .file { color: #d01792; font-weight: bold; }
+.ip, .name { color: #17d092; }
+
+/* for Prolog, Perl */
+.variable { color: #8cc716; }
+.italics { font-style: italic; }
+.bold { font-weight: bold; }
+
+/* for LaTeX */
+.underline { text-decoration: underline; }
+.fixed { color: #8cc716; font-family: monospace; }
+.argument, .optionalargument { color: #d09217; }
+.math { color: #17d092; }
+.bibtex { color: #1793d0; }
+
+/* for diffs */
+.oldfile { color: #d09217; }
+.newfile { color: #8cc716; }
+.difflines { color: #1793d0; }
+
+/* for css */
+.selector { color: #d01792; }
+.property { color: #17d092; }
+.value { font-style: italic; }
+
+
+
+/* aha extra -- nb. that overriding aha's css does not work */
+/* https://github.com/theZiz/aha/pull/82 */
+.italic      {font-style: italic;}
+.reset       {color: none;}
+.bg-reset    {background-color: none;}
+.inverted    {color: white;}
+.bg-inverted {background-color: black;}
+.dimgray     {color: #888;}
+.red         { font-weight: bold; color: #d01717; }
+.green       {color: #8cc716;}
+.yellow      {color: #d09217;}
+.blue        {color: #1793d0;}
+.purple      {color: #d01792;}
+.cyan        {color: #17d092;}
+.white       {color: #eaeaea;}
+.bg-black    {background-color: black;}
+.bg-red      {background-color: #d01717;}
+.bg-green    {background-color: #8cc716;}
+.bg-yellow   {background-color: #ffb31c;}
+.bg-blue     {background-color: #1793d0;}
+.bg-purple   {background-color: #ff1cb3;}
+.bg-cyan     {background-color: #1ae6a1;}
+.bg-white    {background-color: #eaeaea;}
+.blink       {text-decoration: blink;}
+.crossed-out {text-decoration: line-through;}
+.highlighted {filter: contrast(70%) brightness(190%);}
