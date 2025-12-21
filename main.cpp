@@ -34,6 +34,7 @@
 #include "qiq.h"
 
 static Qiq *gs_qiq = nullptr;
+static char *gs_appname;
 #ifndef Q_OS_WIN
 static void sighandler(int signum) {
     switch(signum) {
@@ -67,10 +68,64 @@ void DBusReceptor::NotificationClosed(uint id, uint reason) {
     }
 }
 
+void helpNotify() {
+    printf("Usage: %s notify <summary> [<features>]\n"
+           "       %s notify close <ID>\n", gs_appname, gs_appname);
+    printf(R"(
+Sending a non-waiting notification prints the returned ID of that notification
+
+Features can be:
+    actions=<action,Label[,…]>
+            This implicitly waits and prints the invoked action or other closing reason
+    appname=<appname, also serves as style indictor>
+       body=<longer text>
+   category=<category that can be used as style indicator>
+countdown  |the summary token "%%counter%%" will be replaced by the remaining timeout
+       icon=<app icon name or full path>
+         id=<notification id to replace>
+      image=<path to an image to show>
+resident   |the notification isn't closed by using any action
+transient  |the notification isn't logged
+    urgency=<low|normal|critical>
+wait       |wait until the notification closes and print the reason
+            0: undefined, 1: expired, 2: dismissed, 3: closed by a call to CloseNotification
+Example:
+--------
+%s notify SNAFU "body=foo bar baz" appname=snafu actions=abort,Abort,cancel,Cancel
+)", gs_appname);
+}
+
+void help() {
+    printf("Usage: %s [daemon|filter <file> [<action> [<field separator>]|notify <summary> [<features>]|reconfigure|toggle]\n", gs_appname);
+    printf(R"(-------------------------------------------------------------------------------------------------------------------
+daemon      Explicitly fork a daemon process, immediately exits
+
+filter      filter <file> [<action> [<field separator>]
+            Allow the use to filter through the lines of a file and pass the accepted line to an action
+
+            The special actions "%%clip" and "%%print" will put the result on the clipboard or (wait and) print it to stdout
+            They also allow to remove or replace regular expressions from the result, eg. '%%clip/^[^\|]*\| //%%CRLF%%/\n'
+            will remove anything befire the first "| " and replace "%%CRLF%%" with "\n" (not! a newline)
+            like with the sed "s" operator the first char becomes the instruction separator, this does not have to be
+            the slash "/". Eg. '%%print%%secret' will just remove every occurrence of "secret"
+            Keep in mind that the serach tokens need to be escaped for regular expressions
+
+            The field separator is an arbitrary string that allows to show human readable text (the first field)
+            but pass a number or other technical value to the action.
+
+notify      send a https://xdg.pages.freedesktop.org/xdg-specs/notification
+            prints long help when invoked without any parameter
+
+reconfigure reload the configuration and update Qiq
+
+toggle      shows, hides or activates Qiq depending on its current state
+            It's what you want to bind your shortcut to ;)
+)");
+}
 
 int notify(const QStringList &args) {
     if (args.isEmpty()) {
-        qDebug() << "You need to provide at least a summary";
+        helpNotify();
         return -1;
     }
 
@@ -146,6 +201,7 @@ int notify(const QStringList &args) {
 
 int main (int argc, char **argv)
 {
+    gs_appname = argv[0];
     QString command;
     QStringList parameters;
     bool isDaemon = false;
@@ -157,7 +213,7 @@ int main (int argc, char **argv)
             command = QString();
         }
         if (!isDaemon && !validCommands.contains(command)) {
-            qWarning() << "No such command" << command << "\nValid commands:\n" << validCommands;
+            help();
             return 1;
         }
         for (int i = 2; i < argc; ++i)
