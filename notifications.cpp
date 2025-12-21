@@ -290,6 +290,7 @@ uint Notifications::add(QString app_name, uint replaces_id, QString app_icon, QS
     note->show();
     show();
     adjustGeometry();
+    raise();
     return replaces_id;
 }
 
@@ -354,6 +355,7 @@ void Notifications::recall(uint id) {
         }
         note->show();
         show();
+        raise();
         adjustGeometry();
     }
 }
