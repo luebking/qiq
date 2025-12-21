@@ -298,8 +298,14 @@ void Notifications::adjustGeometry() {
     adjustSize();
     if (const QScreen *screen = windowHandle()->screen()) {
         QRect r = rect();
-        r.moveTop(32);
-        r.moveRight(screen->geometry().right() - 32);
+        if (m_offset.x() > 0)
+            r.moveLeft(screen->geometry().left() + m_offset.x());
+        else
+            r.moveRight(screen->geometry().right() + m_offset.x());
+        if (m_offset.y() > 0)
+            r.moveTop(screen->geometry().left() + m_offset.y());
+        else
+            r.moveBottom(screen->geometry().bottom() + m_offset.y());
         setGeometry(r);
     } else {
         qDebug() << "fuck wayland";

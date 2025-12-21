@@ -54,6 +54,7 @@ public:
     QPixmap pixmap(const QDBusArgument &iiibiiay) const;
     QPixmap pixmap(const QString &file) const;
     void purge(uint id);
+    void setOffset(QPoint offset) { m_offset = offset; }
     void recall(uint id);
 signals:
     void acted(uint id, QString action_key);
@@ -63,6 +64,7 @@ private:
     uint m_id;
     QStandardItemModel *m_model;
     QMap<int, QStandardItem*> m_idMap;
+    QPoint m_offset;
 };
 
 

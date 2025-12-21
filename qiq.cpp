@@ -563,6 +563,7 @@ void Qiq::reconfigure() {
         m_todoSaver->setInterval(300000); // 5 minutes
         connect(m_todoSaver, &QTimer::timeout, this, &Qiq::writeTodoList);
     }
+    m_notifications->setOffset(settings.value("NotificationOffset", QPoint(-32,32)).toPoint());
 
     QFont gaugeFont = QFont(settings.value("GaugeFont").toString());
     QStringList gauges = settings.value("Gauges").toStringList();
