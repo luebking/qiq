@@ -38,6 +38,7 @@ Notification::Notification(QWidget *parent, uint id) : QFrame(parent), m_id(id),
     m_summary->setProperty("role", "summary");
     vl->addLayout(hl);
     vl->addWidget(m_image = new QLabel(this));
+    m_image->setAlignment(Qt::AlignCenter);
     vl->addWidget(m_body = new QLabel(this));
     m_body->setProperty("role", "body");
     m_buttonLayout = new QHBoxLayout;
@@ -209,11 +210,20 @@ QPixmap Notifications::pixmap(const QDBusArgument &iiibiiay) const
 
 QPixmap Notifications::pixmap(const QString &file) const
 {
-    if (QFile::exists(file))
-        return QPixmap(file);
-    QUrl url(file);
-    if (url.isValid() && QFile::exists(url.toLocalFile()))
-        return QPixmap(url.toLocalFile());
+    QPixmap pixmap;
+    if (QFile::exists(file)) {
+        pixmap = QPixmap(file);
+    } else {
+        QUrl url(file);
+        if (url.isValid() && QFile::exists(url.toLocalFile())) {
+            pixmap = QPixmap(url.toLocalFile());
+        }
+    }
+    if (!pixmap.isNull()) {
+        // FFS, trotteltech… https://qt-project.atlassian.net/browse/QTBUG-136729
+        pixmap.setDevicePixelRatio(qApp->primaryScreen()->devicePixelRatio());
+        return pixmap;
+    }
     return QIcon::fromTheme(file).pixmap(48);
 }
 
