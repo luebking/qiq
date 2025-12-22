@@ -40,6 +40,7 @@ public:
     Qiq();
     QString filterCustom(const QString source, const QString action = QString(), const QString fieldSeparator = QString());
     void reconfigure();
+    static int msFromString(const QString &string);
     void toggle();
     void writeHistory();
     void writeTodoList();

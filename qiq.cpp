@@ -192,7 +192,8 @@ Qiq::Qiq() : QStackedWidget() {
     activateWindow();
     raise();
     setUpdatesEnabled(true);
-    connect(m_input, &QLineEdit::textChanged, [=](const QString &text) {
+    connect(m_input, &QLineEdit::textChanged, [=](const QString &t) {
+        QString text = t;
         if (text.isEmpty()) {
             m_input->hide();
             if (currentWidget() == m_list && (m_list->model() == m_external || m_list->model() == m_notifications->model()))
@@ -200,6 +201,21 @@ Qiq::Qiq() : QStackedWidget() {
             if (currentWidget() != m_disp)
                 setCurrentWidget(m_status);
             return;
+        }
+        if (text.size() > 4 && text.startsWith("qiq ")) {
+            static const QString qiq_reconfigure("qiq reconfigure");
+            static const QString qiq_countdown("qiq countdown [<msg>] <t>");
+            m_input->blockSignals(true);
+            if (qiq_reconfigure.startsWith(text)) {
+                m_input->setText(qiq_reconfigure);
+                text = qiq_reconfigure;
+            } else if (qiq_countdown.startsWith(text)) {
+                m_input->setText(qiq_countdown);
+//                m_input->setCursorPosition(14);
+                m_input->setSelection(14, qiq_countdown.size()-14);
+                text = qiq_countdown;
+            }
+            m_input->blockSignals(false);
         }
         QFont fnt = font();
         fnt.setPointSize((2.0f-qMin(1.2f, qMax(0, text.size()-24)/80.0f))*fnt.pointSize());
@@ -1244,6 +1260,30 @@ bool Qiq::runInput() {
         }
     }
 
+    // internal command, don't roundtrip over dbus…
+    if (command.simplified() == "qiq reconfigure") {
+        reconfigure();
+        return true;
+    }
+    if (command.simplified().startsWith("qiq countdown")) {
+        QStringList args = QProcess::splitCommand(command);
+        if (args.count() < 3) {
+            message("<h1 align=center>qiq countdown <time> [<message>]</h1>");
+            return false;
+        }
+        args.remove(0, 2);
+        const int ms = msFromString(args.takeLast());
+        if (ms < 0) {
+            message("<h1 align=center>Invalid time signature - try 5.30 or 5m30s</h1>");
+            return false;
+        }
+        QString summary = args.join(" ");
+        if (!summary.contains("%counter%"))
+            summary.append(" %counter%");
+        QVariantMap hints; hints["transient"] = true; hints["countdown"] = true;
+        m_notifications->add("qiq", 0, "qiq", summary, QString(), QStringList(), hints, ms);
+        return true;
+    }
     // custom command ===========================================================================================================
     QProcess *process = new QProcess(this);
     enum Type { Normal = 0, NoOut, ForceOut, Math, List };
@@ -1523,4 +1563,36 @@ void Qiq::writeTodoList() {
     } else {
         qDebug() << "could not open" << m_todoPath << "for writing";
     }
+}
+
+int Qiq::msFromString(const QString &string) {
+    int ms = 0;
+    bool ok;
+    const QRegularExpression hour("\\d+[h:]"), minute("\\d+[m\\.]"), second("\\d+s");
+    QRegularExpressionMatch match;
+    match = hour.match(string);
+    if (match.hasMatch()) {
+        int v = match.captured(0).chopped(1).toUInt(&ok);
+        if (ok)
+            ms += v*60*60*1000;
+    }
+    match = minute.match(string);
+    if (match.hasMatch()) {
+        int v = match.captured(0).chopped(1).toUInt(&ok);
+        if (ok)
+            ms += v*60*1000;
+    }
+    match = second.match(string);
+    if (match.hasMatch()) {
+        int v = match.captured(0).chopped(1).toUInt(&ok);
+        if (ok)
+            ms += v*1000;
+    }
+    if (!ms) {
+        ms = string.toUInt(&ok);
+        if (!ok) {
+            return -1;
+        }
+    }
+    return ms;
 }

@@ -178,7 +178,7 @@ int notify(const QStringList &args) {
             else if (key == "urgency") // low, normal, critical
                 hints["urgency"] = value;
             else if (key == "timeout")
-                timeout = value.toInt();
+                timeout = Qiq::msFromString(value);
             else if (key == "icon")
                 appIcon = value;
             else if (key == "image")
@@ -240,41 +240,18 @@ int main (int argc, char **argv)
                 printf("%s <time> [<message>]\n", gs_appname);
                 return 1;
             }
-            QString timeout = parameters.takeFirst();
-            int ms = 0;
-            bool ok;
-            const QRegularExpression hour("\\d+[h:]"), minute("\\d+[m\\.]"), second("\\d+s");
-            QRegularExpressionMatch match;
-            match = hour.match(timeout);
-            if (match.hasMatch()) {
-                int v = match.captured(0).chopped(1).toUInt(&ok);
-                if (ok)
-                    ms += v*60*60*1000;
+            const QString timeout = parameters.takeLast();
+            int ms = Qiq::msFromString(timeout);
+            if (ms < 0) {
+                qDebug() << "invalid timeout" << timeout;
+                return 1;
             }
-            match = minute.match(timeout);
-            if (match.hasMatch()) {
-                int v = match.captured(0).chopped(1).toUInt(&ok);
-                if (ok)
-                    ms += v*60*1000;
-            }
-            match = second.match(timeout);
-            if (match.hasMatch()) {
-                int v = match.captured(0).chopped(1).toUInt(&ok);
-                if (ok)
-                    ms += v*1000;
-            }
-            if (!ms) {
-                ms = timeout.toUInt(&ok);
-                if (!ok) {
-                    qDebug() << "invalid timeout" << timeout;
-                    return 1;
-                }
-            }
-            if (parameters.isEmpty())
-                parameters << "%counter%";
-            else
-                parameters[0] += QObject::tr(" in %counter%");
-            parameters << "timeout=" + QString::number(ms) << "transient" << "countdown";
+
+            QString summary = parameters.join(" ");
+            if (!summary.contains("%counter%"))
+                summary.append(" %counter%");
+            parameters.clear();
+            parameters << summary << "timeout=" + QString::number(ms) << "transient" << "countdown";
         }
         if (command == "notify")
             return notify(parameters);
