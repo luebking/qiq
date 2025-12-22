@@ -181,6 +181,7 @@ Qiq::Qiq() : QStackedWidget() {
     binaries.sort();
     m_bins = new QStringListModel(binaries);
     m_files = new QFileSystemModel(this);
+    m_files->setFilter(QDir::AllEntries|QDir::NoDotAndDotDot|QDir::AllDirs|QDir::Hidden|QDir::System);
     m_files->setIconProvider(new QFileIconProvider);
     m_cmdHistory = new QStringListModel(this);
 
@@ -211,7 +212,6 @@ Qiq::Qiq() : QStackedWidget() {
                 text = qiq_reconfigure;
             } else if (qiq_countdown.startsWith(text)) {
                 m_input->setText(qiq_countdown);
-//                m_input->setCursorPosition(14);
                 m_input->setSelection(14, qiq_countdown.size()-14);
                 text = qiq_countdown;
             }
@@ -885,8 +885,10 @@ void Qiq::filter(const QString needle, MatchType matchType) {
             m_list->setRowHidden(i, !(vis && ++visible));
         }
     } else if (matchType == Begin) {
+        const bool filterDot = (m_list->model() == m_files) && !needle.startsWith('.');
         for (int i = 0; i < rows; ++i) {
-            const bool vis = m_list->model()->index(i, 0, m_list->rootIndex()).data().toString().startsWith(needle, Qt::CaseInsensitive);
+            const QString hay = m_list->model()->index(i, 0, m_list->rootIndex()).data().toString();
+            const bool vis = !(filterDot && hay.startsWith('.')) && hay.startsWith(needle, Qt::CaseInsensitive);
             if (vis) {
                 m_lastVisibleRow = i;
                 if (firstVisRow < 0)
