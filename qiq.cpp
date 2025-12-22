@@ -202,7 +202,7 @@ Qiq::Qiq() : QStackedWidget() {
             return;
         }
         QFont fnt = font();
-        fnt.setPointSize((2.0f-qMin(1.2f, text.size()/80.0f))*fnt.pointSize());
+        fnt.setPointSize((2.0f-qMin(1.2f, qMax(0, text.size()-24)/80.0f))*fnt.pointSize());
         m_input->setFont(fnt);
         if (currentWidget() == m_status && text.size() == 1) {
             setModel(m_applications);
