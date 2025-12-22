@@ -36,11 +36,14 @@ Notification::Notification(QWidget *parent, uint id) : QFrame(parent), m_id(id),
     hl->addWidget(m_icon = new QLabel(this));
     hl->addWidget(m_summary = new QLabel(this));
     m_summary->setProperty("role", "summary");
+//    m_summary->setOpenExternalLinks(true);
     vl->addLayout(hl);
     vl->addWidget(m_image = new QLabel(this));
     m_image->setAlignment(Qt::AlignCenter);
     vl->addWidget(m_body = new QLabel(this));
     m_body->setProperty("role", "body");
+    m_body->setWordWrap(true);
+    m_body->setOpenExternalLinks(true);
     m_buttonLayout = new QHBoxLayout;
     m_buttonLayout->addStretch();
     m_buttonLayout->addStretch();
