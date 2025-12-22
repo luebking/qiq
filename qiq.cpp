@@ -555,6 +555,7 @@ void Qiq::enterEvent(QEnterEvent *ee) {
     QStackedWidget::enterEvent(ee);
 }
 
+static QString previousNeedle;
 bool Qiq::eventFilter(QObject *o, QEvent *e) {
     if (o == m_input && e->type() == QEvent::KeyPress) {
         m_autoHide.stop(); // user interaction
@@ -688,6 +689,7 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
             if (m_list->model() == m_cmdHistory) {
                 m_history.removeAll(m_list->currentIndex().data().toString());
                 m_cmdHistory->setStringList(m_history);
+                filter(previousNeedle, Partial);
             } else if (m_list->model() == m_notifications->model()) {
                 m_notifications->purge(m_list->currentIndex().data(Notifications::ID).toUInt());
             }
@@ -718,7 +720,6 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
     return false;
 }
 
-static QString previousNeedle;
 static bool cycleResults = false;
 void Qiq::explicitlyComplete() {
     const QString lastToken = m_input->text().left(m_input->cursorPosition()).section(whitespace, -1, -1);
