@@ -880,6 +880,7 @@ void Qiq::filter(const QString needle, MatchType matchType) {
         shrink = previousNeedle.startsWith(needle, Qt::CaseInsensitive);
     } else { // if (matchType == Partial)
         QStringList sl = needle.split(whitespace, Qt::SkipEmptyParts);
+        bool takeScores = !needle.isEmpty();
         for (int i = 0; i < rows; ++i) {
             QModelIndex index = m_list->model()->index(i, 0, m_list->rootIndex());
             const QString &hay = index.data().toString();
@@ -890,19 +891,23 @@ void Qiq::filter(const QString needle, MatchType matchType) {
                     break;
                 }
             }
-            int score = 0;
-            if (vis) {
-                score = 1;
-                if (hay.startsWith(needle))
-                    score = 100;
-                else if (hay.contains(needle))
-                    score = 50;
+            if (takeScores) {
+                int score = 0;
+                if (vis) {
+                    score = 1;
+                    if (hay.startsWith(needle))
+                        score = 100;
+                    else if (hay.contains(needle))
+                        score = 50;
+                }
+                m_list->model()->setData(index, score, MatchScore);
             }
-            m_list->model()->setData(index, score, MatchScore);
             m_list->setRowHidden(i, !(vis && ++visible));
         }
-        m_list->model()->sort(MatchScore, Qt::DescendingOrder);
-        // sorting unfortunately trashes the order
+        if (takeScores)
+            m_list->model()->sort(MatchScore, Qt::DescendingOrder);
+        // sorting unfortunately trashes the order, so we need a second pass for that
+        // (not special cased for the rare occasion of !takeScores)
         for (int i = 0; i < rows; ++i) {
             if (!m_list->isRowHidden(i)) {
                 m_lastVisibleRow = i;
