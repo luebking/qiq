@@ -59,6 +59,7 @@ Qiq::Qiq() : QStackedWidget() {
 
     m_notifications = new Notifications;
 
+    m_bins = nullptr;
     m_external = nullptr;
     m_cmdCompleted = nullptr;
     m_historySaver = nullptr;
@@ -173,13 +174,6 @@ Qiq::Qiq() : QStackedWidget() {
     m_input->setPalette(pal);
     m_input->installEventFilter(this);
     makeApplicationModel();
-    const QStringList paths = qEnvironmentVariable("PATH").split(':');
-    QStringList binaries;
-    for (const QString &s : paths)
-        binaries.append(QDir(s).entryList(QDir::Files|QDir::Executable));
-    binaries.removeDuplicates();
-    binaries.sort();
-    m_bins = new QStringListModel(binaries);
     m_files = new QFileSystemModel(this);
     m_files->setFilter(QDir::AllEntries|QDir::NoDotAndDotDot|QDir::AllDirs|QDir::Hidden|QDir::System);
     m_files->setIconProvider(new QFileIconProvider);
@@ -467,6 +461,19 @@ void Qiq::reconfigure() {
     for (const QString &key : settings.childKeys())
         m_aliases.insert(key, settings.value(key).toString());
     settings.endGroup();
+
+    const QStringList paths = qEnvironmentVariable("PATH").split(':');
+    QStringList binaries;
+    for (const QString &s : paths)
+        binaries.append(QDir(s).entryList(QDir::Files|QDir::Executable));
+    binaries.append(m_aliases.keys());
+    binaries.removeDuplicates();
+    binaries.sort();
+    if (!m_bins)
+        m_bins = new QStringListModel(binaries);
+    else
+        m_bins->setStringList(binaries);
+
     if (oldDefaultSize != m_defaultSize)
         QMetaObject::invokeMethod(this, &Qiq::adjustGeometry, Qt::QueuedConnection);
 }
