@@ -85,6 +85,7 @@ Qiq::Qiq() : QStackedWidget() {
     addWidget(m_disp = new QTextBrowser);
     m_disp->setFrameShape(QFrame::NoFrame);
     m_disp->setFocusPolicy(Qt::NoFocus);
+    m_disp->document()->setDefaultStyleSheet("a{text-decoration:none;} hr{border-color:#666;}");
 //    m_disp->setFocusPolicy(Qt::ClickFocus);
     m_input = new QLineEdit(this);
     connect(this, &QStackedWidget::currentChanged, [=]() {
@@ -1030,7 +1031,9 @@ void Qiq::message(const QString &string) {
     if (const QScreen *screen = windowHandle()->screen()) {
         max = screen->geometry().size()*0.666666667;
     }
-    m_disp->setMinimumWidth(qMax(m_defaultSize.width(), qMin(max.width(), 12+qCeil(m_disp->document()->size().width()))));
+    m_disp->setMinimumWidth(qMax(m_defaultSize.width(), max.width()));
+    if (m_disp->document()->idealWidth() < 0.75*m_disp->minimumWidth())
+        m_disp->setMinimumWidth(qMax(m_defaultSize.width(), 12+qCeil(m_disp->document()->idealWidth())));
     m_disp->setMinimumHeight(qMin(max.height(), 12+qCeil(m_disp->document()->size().height())));
     if (currentWidget() != m_disp)
         setCurrentWidget(m_disp);
