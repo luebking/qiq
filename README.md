@@ -50,7 +50,9 @@ Despite being the predominant design for 30 years, the above is just silly and s
 Simple runners where you could type to find and start your program lead to that feature being a staple in modern start menus and instead of the tiny systray indicators,
 you could place big beautiful indicators onto yor desktop where they would go on to fight with the icons who gets to to occlude most of your wallpaper. And of course usually being covered by windows…  
 **Status indicators on your desktop are a mistake**  
-Also the taskbar buttons aren't really required to change the window since Apple introduced Exposé
+Also the taskbar buttons aren't really required to change the window since Apple introduced Exposé  
+And despite all of that people are complaining with their now probably AI-driven taskbar to evade the cursor or windows.  
+Madness.
 
 ## What's left?
 * Runners like rofi are generally a good idea and easily outperform any kind of start menu.  
@@ -81,6 +83,9 @@ But that is circumstancial and while qiq can pipe|link processes, it currently c
 
 ## So 80 lines in, will you now finally tell me what's in the box??
 As if you hadn't skipped to here anyway.  
+
+![image](https://raw.githubusercontent.com/luebking/qiq/refs/heads/main/doc/screenshot.png)
+
 Qiq unites the ideas behind rofi, conky, dunst and then some.  
 Because that's the essence of a desktop shell.
 
@@ -116,17 +121,24 @@ Qiq is a desktop shell and not your interactive text shell, but it can be as con
 ## Hmmm… so you talked a lot about input and there's also some output, but…
 Qiq comes with a notification daemon implementing https://xdg.pages.freedesktop.org/xdg-specs/notification/ (plus extra) and can also act as notification client,
 so you can run `qiq notify SNAFU timeout=5s` in a script.  
-This is first because these things are useful and second because qiq can then manage your notifications and leverage the thing for some magic.
+This is firstly, because these things are useful and secondly, because qiq can then manage your notifications and rely on the thing for some magic:
 
-**Firstly** you have some status indicators, because you care about that information, right? And sometimes you might care extra special, because the value
+* You have some status indicators, because you care about that information, right? And sometimes you might care extra special, because the value
 reached a critical level.  
 Well, you can define that and since qiq is monitoring the device anyway, it will send you a notification when crossing thresholds.
 
-**Secondly** there's an important. Really important! thing that's essentially part of every desktop, but usually stuck on your monitor or so.  
+* Then there's an important. Really important! thing that's essentially part of every desktop, but usually stuck on your monitor or so.  
 Qiq has a notebook where you can just take short notes for stuff you need to remember this week… or so.  
 But here it's also a simple calendar, so if your note starts with something that looks like a date, qiq will notify you at that date about that note that you
 otherwise would have forgottom and remembered one day too late.
 
-> There shall, in that time, be rumors of things going astray, erm, and there shall be a great confusion as to where things really are, and nobody will really
-> know where lieth those little things wi-- with the sort of raffia work base that has an attachment. At this time, a friend shall lose his friend's hammer and
-> the young shall not know where lieth the things possessed by their fathers that their fathers put there only just the night before, about eight o'clock.
+## Sold! How do I configure and use it?
+Usage isn't complicated, most happens automagically.  
+You type, you hit enter or click an item, done.  
+`Escape` is your general way out of the situation, `ctrl+click` allows you to collect items, `ctrl+r` is the command history, `ctrl+n` your notification log and `ctrl+t` the todo list.  
+As long as there's no input, `tab` will cycle through the restt of the interface - if you ever need it.
+
+The configuration is done with a single config file, there's an annotated example [in the documentation](https://raw.githubusercontent.com/luebking/qiq/refs/heads/main/doc/qiq.conf)
+
+### I don't like the colors in the screenshot
+The userface can be styled with css, an example can be also found [in the documentation](https://raw.githubusercontent.com/luebking/qiq/refs/heads/main/doc/default.css)
