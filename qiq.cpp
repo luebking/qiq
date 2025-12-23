@@ -79,8 +79,13 @@ Qiq::Qiq() : QStackedWidget() {
     m_list->setEditTriggers(QAbstractItemView::NoEditTriggers);
     connect(m_list, &QAbstractItemView::clicked, [=](const QModelIndex &idx) {
         m_list->setCurrentIndex(idx);
-        insertToken();
-        runInput();
+        if (QGuiApplication::keyboardModifiers() & Qt::ControlModifier) {
+            m_input->setText(m_input->text() + " ");
+            insertToken();
+        } else {
+            insertToken();
+            runInput();
+        }
     });
 
     addWidget(m_disp = new QTextBrowser);
