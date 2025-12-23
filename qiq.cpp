@@ -402,8 +402,8 @@ void Qiq::reconfigure() {
     m_defaultSize = QSize(settings.value("Width", 640).toUInt(), settings.value("Height", 320).toUInt());
     if (oldDefaultSize != m_defaultSize)
         resize(m_defaultSize);
-    int iconSize = settings.value("IconSize", 48).toUInt();
-    m_list->setIconSize(QSize(iconSize,iconSize));
+    m_iconSize = settings.value("IconSize", 48).toUInt();
+    m_list->setIconSize(QSize(m_iconSize,m_iconSize));
     QList<Gauge*> oldGauges = m_status->findChildren<Gauge*>();
     for (const QString &gauge : gauges) {
         settings.beginGroup(gauge);
@@ -566,6 +566,10 @@ void Qiq::adjustGeometry() {
 void Qiq::setModel(QAbstractItemModel *model) {
     static QFont monospace("monospace");
     m_list->setModel(model);
+    if (model == m_applications)
+        m_list->setIconSize(QSize(m_iconSize,m_iconSize));
+    else
+        m_list->setIconSize(QSize());
     if (model == m_applications || model == m_notifications->model())
         m_list->setFont(QFont());
     else

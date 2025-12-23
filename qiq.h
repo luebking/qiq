@@ -88,6 +88,7 @@ private:
     bool m_todoDirty, m_todoSaved;
     QString m_todoPath;
     QTimer *m_todoSaver;
+    int m_iconSize;
 };
 
 class DBusAdaptor : public QDBusAbstractAdaptor
