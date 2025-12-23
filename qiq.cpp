@@ -66,6 +66,7 @@ Qiq::Qiq() : QStackedWidget() {
     m_todoSaver = nullptr;
     m_todoDirty = false;
     m_todoSaved = true;
+    m_selectionIsSynthetic = false;
 
     addWidget(m_list = new QListView);
     m_list->setFrameShape(QFrame::NoFrame);
@@ -215,6 +216,14 @@ Qiq::Qiq() : QStackedWidget() {
                 text = qiq_countdown;
             }
             m_input->blockSignals(false);
+        }
+        if (text == "cd ") {
+            m_input->blockSignals(true);
+            text = "cd " + QDir::currentPath();
+            m_input->setText(text);
+            m_input->setSelection(3, text.size()-3);
+            m_input->blockSignals(false);
+            explicitlyComplete();
         }
         QFont fnt = font();
         fnt.setPointSize((2.0f-qMin(1.2f, qMax(0, text.size()-24)/80.0f))*fnt.pointSize());
@@ -693,8 +702,9 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
             return true;
         }
         if (key == Qt::Key_Space || (m_list->model() == m_files && static_cast<QKeyEvent*>(e)->text() == "/")) {
-            if (m_input->selectionEnd() == m_input->text().size()) {
+            if (m_selectionIsSynthetic) {
                 m_input->deselect();
+                m_selectionIsSynthetic = false;
                 m_input->setCursorPosition(m_input->text().size());
             }
             return false;
@@ -857,6 +867,9 @@ void Qiq::tokenUnderCursor(int &left, int &right) {
     right = text.indexOf(whitespace, m_input->cursorPosition());
     if (right < 0)
         right = text.length();
+    if (text.at(right-1) == '"') {
+        left = qMax(0, text.lastIndexOf('"', right - 2));
+    }
 }
 
 void Qiq::filter(const QString needle, MatchType matchType) {
@@ -996,6 +1009,8 @@ void Qiq::filterInput() {
     tokenUnderCursor(left, right);
     text = text.mid(left, right - left);
     if (m_list->model() == m_files) {
+        if (text.startsWith('~'))
+            text.replace(0,1,QDir::homePath());
         QFileInfo fileInfo(text);
         const QString path = fileInfo.dir().absolutePath();
         if (path != m_files->rootPath()) {
@@ -1045,7 +1060,6 @@ void Qiq::insertToken() {
     if (pos > -1) {
         int len = m_input->selectionLength();
         text.replace(pos, len, newToken);
-        m_input->setText(text);
     } else {
         int left, right;
         tokenUnderCursor(left, right);
@@ -1055,11 +1069,16 @@ void Qiq::insertToken() {
         text.replace(left, right - left, newToken);
         pos = -(left+newToken.size());
     }
+    if (text == m_input->text())
+        return; // idempotent, leave alone
     m_input->setText(text);
-    if (pos > -1)
+    if (pos > -1) {
         m_input->setSelection(pos, newToken.length());
-    else
+        m_selectionIsSynthetic = true;
+        connect(m_input, &QLineEdit::selectionChanged, this, [=]() { m_selectionIsSynthetic = false; }, Qt::SingleShotConnection);
+    } else {
         m_input->setCursorPosition(-pos);
+    }
 }
 
 bool mightBeRichText(const QString &text) {
@@ -1259,13 +1278,19 @@ bool Qiq::runInput() {
     }
 
     // open file ==================================================================================================================
-    if (QFileInfo::exists(command)) {
+    QFileInfo fInfo(command);
+    if (!fInfo.exists() && command.startsWith("cd "))
+        fInfo = QFileInfo(command.sliced(3,command.size()-3));
+    if (!fInfo.exists() && fInfo.filePath().startsWith('"') && fInfo.filePath().endsWith('"'))
+        fInfo = QFileInfo(fInfo.filePath().sliced(1,fInfo.filePath().size()-2));
+    if (fInfo.exists()) {
+        if (fInfo.isDir()) {
+            QDir::setCurrent(fInfo.filePath());
+            m_autoHide.stop(); // SIC! Just in case it's running
+            return true;
+        }
         m_autoHide.start(1000);
-        return QProcess::startDetached("xdg-open", QStringList() << command);
-    }
-    if (command.startsWith('"') && command.endsWith('"') && QFileInfo::exists(command.sliced(1,command.size()-2))) {
-        m_autoHide.start(1000);
-        return QProcess::startDetached("xdg-open", QStringList() << command.sliced(1,command.size()-2));
+        return QProcess::startDetached("xdg-open", QStringList() << fInfo.filePath());
     }
     // ============================================================================================================================
 

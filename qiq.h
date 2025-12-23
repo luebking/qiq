@@ -89,6 +89,7 @@ private:
     QString m_todoPath;
     QTimer *m_todoSaver;
     int m_iconSize;
+    bool m_selectionIsSynthetic;
 };
 
 class DBusAdaptor : public QDBusAbstractAdaptor
