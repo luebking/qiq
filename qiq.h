@@ -57,7 +57,7 @@ private:
     void insertToken();
     void makeApplicationModel();
     void message(const QString &string);
-    void notifyUser(const QString &summary, const QString &body);
+    void notifyUser(const QString &summary, const QString &body, int urgency = 1);
     void printOutput(int exitCode);
     bool runInput();
     void setModel(QAbstractItemModel *model);

@@ -6,8 +6,10 @@
 class Gauge : public QWidget {
     Q_OBJECT
 public:
+    enum ThreshType { None = 0, Maximum, Minimum };
     Gauge(QWidget *parent);
     void setColors(const QColor low, const QColor high, int index = 0);
+    void setCriticalThreshold(int value, ThreshType type, const QString msg = QString(), int index = 0);
     void setInterval(uint ms = 1000);
     void setLabel(const QString label);
     void setMouseAction(QString action, Qt::MouseButton btn = Qt::LeftButton);
@@ -17,6 +19,8 @@ public:
     void setSource(QString source, int index = 0);
     void setToolTip(const QString tip, uint cacheMs = 1000);
     void setWheelAction(QString action, Qt::ArrowType direction);
+signals:
+    void critical(const QString &message);
 protected:
     void enterEvent(QEnterEvent *event) override;
     bool eventFilter(QObject *o, QEvent *e) override;
@@ -29,13 +33,14 @@ protected:
 private:
     enum Type { Normal, Clock, Memory };
     void adjustGeometry();
+    void checkCritical(int i);
     void readFromProcess();
     void readTipFromProcess();
     void updateValues();
     QColor m_colors[3][2];
-    int m_range[3][2], m_value[3];
+    int m_range[3][2], m_value[3], m_threshValue[3];
     uint m_interval, m_tipCache, m_labelFlags;
-    QString m_source[3], m_tooltip, m_tooltipSource, m_label;
+    QString m_source[3], m_tooltip, m_tooltipSource, m_label, m_threshWarning[3];
     QHash<Qt::MouseButton, QString> m_mouseActions;
     QString m_wheelAction[4];
     qint64 m_lastTipDate;
@@ -44,6 +49,7 @@ private:
     Qt::Alignment m_align;
     QPoint m_offset;
     Type m_type;
+    ThreshType m_threshType[3];
 };
 
 #endif // GAUGE_H

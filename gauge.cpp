@@ -14,6 +14,7 @@ enum LabelFlags { P1 = 0, P2, P3, V1, V2, V3, DV1, DV2, DV3, CV1, CV2, CV3, MV1,
 Gauge::Gauge(QWidget *parent) : QWidget(parent) {
     for (int i = 0; i < 3; ++i) {
         m_range[i][0] = 0; m_range[i][1] = 100;
+        m_threshType[i] = None;
     }
     m_interval = 1000;
     m_tipCache = 1000;
@@ -68,11 +69,35 @@ void Gauge::readFromProcess() {
         m_value[i] = 0;
     }
     p->deleteLater();
-    update();
+    if (ok)
+        checkCritical(i);
+    if (isVisible())
+        update();
+}
+
+void Gauge::checkCritical(int i) {
+    auto emitWarning = [=](const QString fallback) {
+        if (m_threshWarning[i].isEmpty()) {
+            emit critical(fallback);
+            return;
+        }
+        QString msg = m_threshWarning[i];
+        int percent = qRound(100*(m_value[i]-m_range[i][0])/double(m_range[i][1]-m_range[i][0]));
+        msg.replace(QString("%p"), QString::number(percent));
+        msg.replace(QString("%v"), QString::number(m_value[i]));
+        msg.replace(QString("%dv"), QString::number(m_value[i]/10));
+        msg.replace(QString("%cv"), QString::number(m_value[i]/100));
+        msg.replace(QString("%mv"), QString::number(m_value[i]/1000));
+        emit critical(msg);
+    };
+    if (m_threshType[i] == Maximum && m_value[i] >= m_threshValue[i])
+        emitWarning(QString("%1 > %2").arg(m_value[i]).arg(m_threshValue[i]));
+    if (m_threshType[i] == Minimum && m_value[i] <= m_threshValue[i])
+        emitWarning(QString("%1 < %2").arg(m_value[i]).arg(m_threshValue[i]));
 }
 
 void Gauge::updateValues() {
-    if (!isVisible()) {
+    if (!(isVisible() || m_threshValue[0] || m_threshValue[1] || m_threshValue[2])) {
         m_dirty = true;
         return;
     }
@@ -123,8 +148,10 @@ void Gauge::updateValues() {
                     m_range[i][1] = meminfo.value("MemTotal");
                     m_value[i] = meminfo.value(m_source[i]);
                 }
+                checkCritical(i);
             }
-            update();
+            if (isVisible())
+                update();
             return;
         }
         qDebug() << "unexpected meminfo, could not read /proc/meminfo!!!";
@@ -154,7 +181,9 @@ void Gauge::updateValues() {
                 qDebug() << "Could not open" << m_source[i];
                 return;
             }
-            update();
+            checkCritical(i);
+            if (isVisible())
+                update();
         } else {
             QProcess *p = new QProcess(this);
             p->setProperty("gauge_index", i);
@@ -249,6 +278,14 @@ void Gauge::setRange(int min, int max, int i) {
 void Gauge::setColors(const QColor low, const QColor high, int i) {
     m_colors[i][0] = low; m_colors[i][1] = high;
     update();
+}
+
+void Gauge::setCriticalThreshold(int value, ThreshType type, const QString msg, int i) {
+    if (m_type == Clock)
+        return; // no
+    m_threshType[i] = type;
+    m_threshValue[i] = value;
+    m_threshWarning[i] = msg;
 }
 
 void Gauge::setToolTip(const QString tip, uint cacheMs) {

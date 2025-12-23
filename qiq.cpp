@@ -413,6 +413,9 @@ void Qiq::reconfigure() {
         } else {
             g = new Gauge(m_status);
             g->setObjectName(gauge);
+            connect (g, &Gauge::critical, [=](const QString &m) {
+                notifyUser(m, QString(), 2);
+            });
         }
 
         g->setFont(gaugeFont);
@@ -422,6 +425,15 @@ void Qiq::reconfigure() {
                         settings.value(QString("Max%1").arg(i+1), 100).toInt(), i);
             g->setColors(settings.value(QString("ColorLow%1").arg(i+1)).value<QColor>(),
                          settings.value(QString("ColorHigh%1").arg(i+1)).value<QColor>(), i);
+
+            QString thresh = settings.value(QString("Threshold%1").arg(i+1)).toString();
+            bool ok = false; int v;
+            if (thresh.size() > 1)
+                v = thresh.mid(1,-1).toInt(&ok);
+            if (ok && thresh.at(0) == '>')
+                g->setCriticalThreshold(v, Gauge::Maximum, settings.value(QString("ThreshMsg%1").arg(i+1)).toString(), i);
+            if (ok && thresh.at(0) == '<')
+                g->setCriticalThreshold(v, Gauge::Minimum, settings.value(QString("ThreshMsg%1").arg(i+1)).toString(), i);
         }
         g->setLabel(settings.value("Label").toString());
         g->setInterval(settings.value("Interval", 1000).toUInt());
@@ -528,9 +540,11 @@ void Qiq::makeApplicationModel() {
     }
 }
 
-void Qiq::notifyUser(const QString &summary, const QString &body) {
+void Qiq::notifyUser(const QString &summary, const QString &body, int urgency) {
     QVariantMap hints;
     hints["transient"] = true;
+    if (urgency != 1)
+        hints["urgency"] = urgency;
     m_notifications->add("Qiq", 0, "qiq", summary, body, QStringList(), hints, 0);
 }
 
