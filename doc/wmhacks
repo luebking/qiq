@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# ~/.local/share/wmhacks
+
+# scriptable external actions to "fix" windowmanagers
+# this uses xdotool because there's actually a common approach to this on X11
+# if you're looking for solutions for your wayland compositor/window manager you'll
+# have to look for specific solutions or ask the compositor to implement special behavior fro Qiq
+case "$1" in
+show)
+# some window managers will not repeat the first key after the window shows
+# workaround: press a special void key that won't do anything anywhere but gets us over this hill
+xdotool key VoidSymbol
+;;
+activate)
+;;
+hide)
+# MANY windowmanagers will completely lose track of the active window when an override_redirect window
+# that had the input focus hides, so make them focus the active window again
+xdotool getactivewindow windowfocus
+;;
+esac

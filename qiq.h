@@ -45,6 +45,7 @@ public:
     void writeHistory();
     void writeTodoList();
 protected:
+    bool event(QEvent *event) override;
     void enterEvent(QEnterEvent *ee) override;
     bool eventFilter(QObject *o, QEvent *e) override;
 private:
@@ -90,6 +91,7 @@ private:
     QTimer *m_todoSaver;
     int m_iconSize;
     bool m_selectionIsSynthetic;
+    bool m_grabKeyboard;
 };
 
 class DBusAdaptor : public QDBusAbstractAdaptor

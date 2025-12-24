@@ -54,7 +54,6 @@ Qiq::Qiq() : QStackedWidget() {
     QDBusConnection::sessionBus().registerObject("/", this);
     new DBusAdaptor(this);
 //    qEnvironmentVariable(const char *varName, const QString &defaultValue)
-    setWindowFlags(Qt::BypassWindowManagerHint/* |Qt::FramelessWindowHint|Qt::WindowStaysOnTopHint */);
     addWidget(m_status = new QWidget);
 
     m_notifications = new Notifications;
@@ -409,6 +408,19 @@ void Qiq::reconfigure() {
         connect(m_todoSaver, &QTimer::timeout, this, &Qiq::writeTodoList);
     }
     m_notifications->setOffset(settings.value("NotificationOffset", QPoint(-32,32)).toPoint());
+    QStringList wmHacks = settings.value("WMHacks", "Bypass").toStringList();
+    Qt::WindowFlags flags = Qt::Window;
+    if (wmHacks.contains("bypass", Qt::CaseInsensitive))
+        flags |= Qt::BypassWindowManagerHint;
+    else
+        flags |= Qt::WindowStaysOnTopHint|Qt::FramelessWindowHint;
+    if (wmHacks.contains("popup", Qt::CaseInsensitive))
+        flags |= Qt::Popup;
+    setWindowFlags(flags);
+    releaseKeyboard();
+    m_grabKeyboard = wmHacks.contains("grabkeyboard", Qt::CaseInsensitive);
+    if (m_grabKeyboard && isVisible())
+        grabKeyboard();
 
     QFont gaugeFont = QFont(settings.value("GaugeFont").toString());
     QStringList gauges = settings.value("Gauges").toStringList();
@@ -602,6 +614,24 @@ void Qiq::setModel(QAbstractItemModel *model) {
         m_list->setFont(QFont());
     else
         m_list->setFont(monospace);
+}
+
+bool Qiq::event(QEvent *event) {
+    static QString wmscript = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + QDir::separator() + "wmhacks";
+    if (event->type() == QEvent::Show) {
+        if (m_grabKeyboard)
+            grabKeyboard();
+        QProcess::startDetached(wmscript, QStringList() << "show");
+    } else if (event->type() == QEvent::Hide) {
+        if (m_grabKeyboard)
+            releaseKeyboard();
+        QProcess::startDetached(wmscript, QStringList() << "hide");
+    } else if (event->type() == QEvent::ActivationChange && isActiveWindow()) {
+        if (m_grabKeyboard)
+            grabKeyboard();
+        QProcess::startDetached(wmscript, QStringList() << "activate");
+    }
+    return QStackedWidget::event(event);
 }
 
 void Qiq::enterEvent(QEnterEvent *ee) {
@@ -1590,12 +1620,14 @@ void Qiq::toggle() {
         adjustGeometry();
         activateWindow();
         raise();
+        m_input->setFocus();
     } else if (isActiveWindow()) {
         hide();
     } else {
         adjustGeometry();
         activateWindow();
         raise();
+        m_input->setFocus();
     }
 }
 
