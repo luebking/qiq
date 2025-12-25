@@ -673,6 +673,8 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
                 }
             } else if (m_selectionIsSynthetic && m_input->selectionEnd() > -1) {
                 int newPos = m_input->selectionEnd();
+                if (m_list->model() == m_files && m_input->text().at(newPos-1) == '"')
+                    --newPos;
                 m_input->deselect();
                 m_selectionIsSynthetic = false;
                 m_input->setCursorPosition(newPos);
@@ -745,6 +747,8 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
         if (key == Qt::Key_Space || (m_list->model() == m_files && static_cast<QKeyEvent*>(e)->text() == "/")) {
             if (m_selectionIsSynthetic && m_input->selectionEnd() > -1) {
                 int newPos = m_input->selectionEnd();
+                if (key != Qt::Key_Space && m_input->text().at(newPos-1) == '"') // key != Qt::Key_Space implies "/" on files
+                    --newPos;
                 m_input->deselect();
                 m_selectionIsSynthetic = false;
                 m_input->setCursorPosition(newPos);
@@ -844,6 +848,10 @@ void Qiq::explicitlyComplete() {
         path.replace(0,1,QDir::homePath());
     QFileInfo fileInfo(path);
     QDir dir = fileInfo.dir();
+    if (!dir.exists() && path.startsWith('"') && path.endsWith('"')) {
+        fileInfo = QFileInfo(path.mid(1,path.size()-2));
+        dir = fileInfo.dir();
+    }
     if (dir.exists() && (dir != QDir::current() || lastToken.contains('/'))) {
         setCurrentWidget(m_list);
         setModel(m_files);
@@ -1054,7 +1062,12 @@ void Qiq::filterInput() {
         if (text.startsWith('~'))
             text.replace(0,1,QDir::homePath());
         QFileInfo fileInfo(text);
-        const QString path = fileInfo.dir().absolutePath();
+        QDir dir = fileInfo.dir();
+        if (!dir.exists() && text.startsWith('"') && text.endsWith('"')) {
+            fileInfo = QFileInfo(text.mid(1,text.size()-2));
+            dir = fileInfo.dir();
+        }
+        const QString path = dir.absolutePath();
         if (path != m_files->rootPath()) {
             m_files->setRootPath(path);
             m_list->setCurrentIndex(QModelIndex());
@@ -1338,7 +1351,7 @@ bool Qiq::runInput() {
     if (!fInfo.exists() && command.startsWith("cd "))
         fInfo = QFileInfo(command.sliced(3,command.size()-3));
     if (!fInfo.exists() && fInfo.filePath().startsWith('"') && fInfo.filePath().endsWith('"'))
-        fInfo = QFileInfo(fInfo.filePath().sliced(1,fInfo.filePath().size()-2));
+        fInfo = QFileInfo(fInfo.filePath().mid(1,fInfo.filePath().size()-2));
     if (fInfo.exists()) {
         if (fInfo.isDir()) {
             QDir::setCurrent(fInfo.filePath());
