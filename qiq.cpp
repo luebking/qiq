@@ -81,9 +81,9 @@ Qiq::Qiq() : QStackedWidget() {
         m_list->setCurrentIndex(idx);
         if (QGuiApplication::keyboardModifiers() & Qt::ControlModifier) {
             m_input->setText(m_input->text() + " ");
-            insertToken();
+            insertToken(false);
         } else {
-            insertToken();
+            insertToken(false);
             runInput();
         }
     });
@@ -665,6 +665,11 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
                 } else if (currentWidget() == m_disp) {
                     setCurrentWidget(m_status);
                 }
+            } else if (m_selectionIsSynthetic && m_input->selectionEnd() > -1) {
+                int newPos = m_input->selectionEnd();
+                m_input->deselect();
+                m_selectionIsSynthetic = false;
+                m_input->setCursorPosition(newPos);
             } else {
                 explicitlyComplete();
             }
@@ -673,14 +678,14 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
         if ((key == Qt::Key_PageUp || key == Qt::Key_PageDown) && currentWidget() == m_list) {
             m_list->setEnabled(true);
             QApplication::sendEvent(currentWidget(), e);
-            insertToken();
+            insertToken(false);
             return true;
         }
         if (key == Qt::Key_Up || key == Qt::Key_Down) {
             if (currentWidget() == m_list) {
                 m_list->setEnabled(true);
                 QApplication::sendEvent(currentWidget(), e);
-                insertToken();
+                insertToken(false);
             } else {
                 int idx = m_currentHistoryIndex;
                 if (idx < 0) {
@@ -732,10 +737,11 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
             return true;
         }
         if (key == Qt::Key_Space || (m_list->model() == m_files && static_cast<QKeyEvent*>(e)->text() == "/")) {
-            if (m_selectionIsSynthetic) {
+            if (m_selectionIsSynthetic && m_input->selectionEnd() > -1) {
+                int newPos = m_input->selectionEnd();
                 m_input->deselect();
                 m_selectionIsSynthetic = false;
-                m_input->setCursorPosition(m_input->text().size());
+                m_input->setCursorPosition(newPos);
             }
             return false;
         }
@@ -824,7 +830,7 @@ void Qiq::explicitlyComplete() {
                 QApplication::sendEvent(m_list, &ke);
             }
         }
-        insertToken();
+        insertToken(false);
         return;
     }
     QString path = lastToken;
@@ -837,7 +843,7 @@ void Qiq::explicitlyComplete() {
         setModel(m_files);
         cycleResults = true;
         if (m_files->rootPath() == dir.absolutePath()) {
-            insertToken();
+            insertToken(true);
             return; // idempotent, leave the directory as is
         }
         m_files->setRootPath(dir.absolutePath());
@@ -1025,7 +1031,7 @@ void Qiq::filter(const QString needle, MatchType matchType) {
     m_list->setEnabled(m_list->currentIndex().isValid());
     prevVisible = visible;
     if (visible == 1 && !shrink && !needle.isEmpty()) {
-        QTimer::singleShot(1, this, &Qiq::insertToken); // needs to be delayed to trigger the textChanged after the actual edit
+        QTimer::singleShot(1, this, [=]() { Qiq::insertToken(true); }); // needs to be delayed to trigger the textChanged after the actual edit
     }
     adjustGeometry();
 }
@@ -1057,7 +1063,7 @@ void Qiq::filterInput() {
     filter(text, Begin);
 }
 
-void Qiq::insertToken() {
+void Qiq::insertToken(bool selectDiff) {
     if (m_list->model() == m_applications)
         return; // nope. Never.
     if (m_list->model() == m_external) {
@@ -1086,7 +1092,8 @@ void Qiq::insertToken() {
     }
     QString text = m_input->text();
 
-    int pos = m_input->selectionStart();
+    int pos = selectDiff ? -1 : m_input->selectionStart();
+    int cursorOffset = 0;
     if (pos > -1) {
         int len = m_input->selectionLength();
         text.replace(pos, len, newToken);
@@ -1096,18 +1103,29 @@ void Qiq::insertToken() {
         const QChar firstChar = text.at(left);
         if (firstChar == '=' || firstChar == '?' || firstChar == '!' || firstChar == '#')
             ++left;
+        if (m_list->model() == m_files && newToken.startsWith('"') && text.at(left) != '"')
+            ++cursorOffset;
         text.replace(left, right - left, newToken);
         pos = -(left+newToken.size());
     }
     if (text == m_input->text())
         return; // idempotent, leave alone
-    m_input->setText(text);
+    int sl = 0;
     if (pos > -1) {
-        m_input->setSelection(pos, newToken.length());
+        sl = newToken.length();
+    } else if (selectDiff) {
+        sl = -pos - m_input->cursorPosition();
+        pos = m_input->cursorPosition() + cursorOffset;
+    } else {
+        pos = -pos;
+    }
+    m_input->setText(text);
+    if (sl > 0) {
+        m_input->setSelection(pos, sl);
         m_selectionIsSynthetic = true;
         connect(m_input, &QLineEdit::selectionChanged, this, [=]() { m_selectionIsSynthetic = false; }, Qt::SingleShotConnection);
     } else {
-        m_input->setCursorPosition(-pos);
+        m_input->setCursorPosition(pos);
     }
 }
 

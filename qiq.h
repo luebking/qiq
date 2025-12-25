@@ -55,7 +55,7 @@ private:
     void explicitlyComplete();
     void filter(const QString needle, MatchType matchType);
     void filterInput();
-    void insertToken();
+    void insertToken(bool selectDiff);
     void makeApplicationModel();
     void message(const QString &string);
     void notifyUser(const QString &summary, const QString &body, int urgency = 1);
