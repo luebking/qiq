@@ -493,6 +493,7 @@ void Qiq::reconfigure() {
         }
         g->setPosition(a, settings.value("OffsetX", 0).toInt(), settings.value("OffsetY", 0).toInt());
         g->setSize(settings.value("Size", 128).toInt());
+        g->setThresholdsRedundant(settings.value("RedundantThresholds", false).toBool());
         settings.endGroup();
     }
 

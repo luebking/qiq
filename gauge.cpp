@@ -79,7 +79,7 @@ void Gauge::readFromProcess() {
 void Gauge::checkCritical(int i) {
     auto emitWarning = [=](const QString fallback) {
         if (m_threshWarning[i].isEmpty()) {
-            emit critical(fallback, i);
+            emit critical(fallback, m_criticalGroup ? 0 : i);
             return;
         }
         QString msg = m_threshWarning[i];
@@ -89,17 +89,30 @@ void Gauge::checkCritical(int i) {
         msg.replace(QString("%dv"), QString::number(m_value[i]/10));
         msg.replace(QString("%cv"), QString::number(m_value[i]/100));
         msg.replace(QString("%mv"), QString::number(m_value[i]/1000));
-        emit critical(msg, i);
+        emit critical(msg, m_criticalGroup ? 0 : i);
+    };
+    auto groupOk = [=]() {
+        if (!m_criticalGroup)
+            return false;
+        for (int j = 0; j < 3; ++j) {
+            if (j == i || m_threshType[j] == None)
+                continue;
+            if (!m_wasCritical[j])
+                return true;
+        }
+        return false;
     };
     if (m_threshType[i] == Maximum && m_value[i] > m_threshValue[i]) {
         m_wasCritical[i] = true;
-        emitWarning(QString("%1 > %2").arg(m_value[i]).arg(m_threshValue[i]));
+        if (!groupOk())
+            emitWarning(QString("%1 > %2").arg(m_value[i]).arg(m_threshValue[i]));
     } else if (m_threshType[i] == Minimum && m_value[i] < m_threshValue[i]) {
-        emitWarning(QString("%1 < %2").arg(m_value[i]).arg(m_threshValue[i]));
+        if (!groupOk())
+            emitWarning(QString("%1 < %2").arg(m_value[i]).arg(m_threshValue[i]));
         m_wasCritical[i] = true;
     } else if (m_wasCritical[i]) {
         m_wasCritical[i] = false;
-        emit uncritical(i);
+        emit uncritical(m_criticalGroup ? 0 : i);
     }
 }
 
@@ -293,6 +306,10 @@ void Gauge::setCriticalThreshold(int value, ThreshType type, const QString msg, 
     m_threshType[i] = type;
     m_threshValue[i] = value;
     m_threshWarning[i] = msg;
+}
+
+void Gauge::setThresholdsRedundant(bool redundant) {
+    m_criticalGroup = redundant;
 }
 
 void Gauge::setToolTip(const QString tip, uint cacheMs) {

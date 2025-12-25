@@ -18,6 +18,7 @@ public:
     void setSize(int size);
     void setSource(QString source, int index = 0);
     void setToolTip(const QString tip, uint cacheMs = 1000);
+    void setThresholdsRedundant(bool redundant);
     void setWheelAction(QString action, Qt::ArrowType direction);
 signals:
     void critical(const QString &message, int ring);
@@ -51,7 +52,7 @@ private:
     QPoint m_offset;
     Type m_type;
     ThreshType m_threshType[3];
-    bool m_wasCritical[3];
+    bool m_wasCritical[3], m_criticalGroup;
 };
 
 #endif // GAUGE_H
