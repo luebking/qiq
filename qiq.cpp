@@ -1280,7 +1280,9 @@ bool Qiq::runInput() {
                 m_externalReply = v;
                 ret = true;
             } else {
-                ret = QProcess::startDetached(m_externCmd, QStringList() << v);
+                QStringList args = QProcess::splitCommand(m_externCmd);
+                args << v;
+                ret = QProcess::startDetached(args.takeFirst(), args);
             }
             if (!m_wasVisble)
                 hide();
@@ -1606,7 +1608,7 @@ QString Qiq::filterCustom(const QString source, const QString action, const QStr
             QStringList sl = s.split(fieldSeparator);
             item = new QStandardItem(sl.at(0));
             if (sl.size() > 1)
-                item->setData(sl.at(0), AppExec);
+                item->setData(sl.at(1), AppExec);
         }
         m_external->appendRow(item);
     }
