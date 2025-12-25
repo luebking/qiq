@@ -15,6 +15,7 @@ Gauge::Gauge(QWidget *parent) : QWidget(parent) {
     for (int i = 0; i < 3; ++i) {
         m_range[i][0] = 0; m_range[i][1] = 100;
         m_threshType[i] = None;
+        m_wasCritical[i] = false;
     }
     m_interval = 1000;
     m_tipCache = 1000;
@@ -78,7 +79,7 @@ void Gauge::readFromProcess() {
 void Gauge::checkCritical(int i) {
     auto emitWarning = [=](const QString fallback) {
         if (m_threshWarning[i].isEmpty()) {
-            emit critical(fallback);
+            emit critical(fallback, i);
             return;
         }
         QString msg = m_threshWarning[i];
@@ -88,12 +89,18 @@ void Gauge::checkCritical(int i) {
         msg.replace(QString("%dv"), QString::number(m_value[i]/10));
         msg.replace(QString("%cv"), QString::number(m_value[i]/100));
         msg.replace(QString("%mv"), QString::number(m_value[i]/1000));
-        emit critical(msg);
+        emit critical(msg, i);
     };
-    if (m_threshType[i] == Maximum && m_value[i] >= m_threshValue[i])
+    if (m_threshType[i] == Maximum && m_value[i] > m_threshValue[i]) {
+        m_wasCritical[i] = true;
         emitWarning(QString("%1 > %2").arg(m_value[i]).arg(m_threshValue[i]));
-    if (m_threshType[i] == Minimum && m_value[i] <= m_threshValue[i])
+    } else if (m_threshType[i] == Minimum && m_value[i] < m_threshValue[i]) {
         emitWarning(QString("%1 < %2").arg(m_value[i]).arg(m_threshValue[i]));
+        m_wasCritical[i] = true;
+    } else if (m_wasCritical[i]) {
+        m_wasCritical[i] = false;
+        emit uncritical(i);
+    }
 }
 
 void Gauge::updateValues() {

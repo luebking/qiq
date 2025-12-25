@@ -58,7 +58,7 @@ private:
     void insertToken(bool selectDiff);
     void makeApplicationModel();
     void message(const QString &string);
-    void notifyUser(const QString &summary, const QString &body, int urgency = 1);
+    uint notifyUser(const QString &summary, const QString &body, int urgency = 1, uint id = 0);
     void printOutput(int exitCode);
     bool runInput();
     void setModel(QAbstractItemModel *model);

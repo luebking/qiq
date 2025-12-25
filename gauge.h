@@ -20,7 +20,8 @@ public:
     void setToolTip(const QString tip, uint cacheMs = 1000);
     void setWheelAction(QString action, Qt::ArrowType direction);
 signals:
-    void critical(const QString &message);
+    void critical(const QString &message, int ring);
+    void uncritical(int ring);
 protected:
     void enterEvent(QEnterEvent *event) override;
     bool eventFilter(QObject *o, QEvent *e) override;
@@ -50,6 +51,7 @@ private:
     QPoint m_offset;
     Type m_type;
     ThreshType m_threshType[3];
+    bool m_wasCritical[3];
 };
 
 #endif // GAUGE_H

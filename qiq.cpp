@@ -431,6 +431,7 @@ void Qiq::reconfigure() {
     m_iconSize = settings.value("IconSize", 48).toUInt();
     m_list->setIconSize(QSize(m_iconSize,m_iconSize));
     QList<Gauge*> oldGauges = m_status->findChildren<Gauge*>();
+    static QHash<QString,uint> gaugeNotificationIDs;
     for (const QString &gauge : gauges) {
         settings.beginGroup(gauge);
         Gauge *g = m_status->findChild<Gauge*>(gauge);
@@ -439,8 +440,12 @@ void Qiq::reconfigure() {
         } else {
             g = new Gauge(m_status);
             g->setObjectName(gauge);
-            connect (g, &Gauge::critical, [=](const QString &m) {
-                notifyUser(m, QString(), 2);
+            connect (g, &Gauge::critical, [=](const QString &m, int i) {
+                const QString key = g->objectName() + QString("/%1").arg(i);
+                gaugeNotificationIDs[key] = notifyUser(m, QString(), 2, gaugeNotificationIDs.value(key, 0));
+            });
+            connect (g, &Gauge::uncritical, [=](int i) {
+                m_notifications->purge(gaugeNotificationIDs.value(g->objectName() + QString("/%1").arg(i), 0));
             });
         }
 
@@ -566,12 +571,12 @@ void Qiq::makeApplicationModel() {
     }
 }
 
-void Qiq::notifyUser(const QString &summary, const QString &body, int urgency) {
+uint Qiq::notifyUser(const QString &summary, const QString &body, int urgency, uint id) {
     QVariantMap hints;
     hints["transient"] = true;
     if (urgency != 1)
         hints["urgency"] = urgency;
-    m_notifications->add("Qiq", 0, "qiq", summary, body, QStringList(), hints, 0);
+    return m_notifications->add("Qiq", id, "qiq", summary, body, QStringList(), hints, 0);
 }
 
 void Qiq::adjustGeometry() {
