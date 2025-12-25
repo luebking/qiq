@@ -21,5 +21,6 @@ Notification QLabel[role=body] {color: #aaa;}
 
 /* urgency, category and appname are valid properties for style selectors */
 Notification[urgency=low] { color: #999; background-color: #272727; }
+Notification[urgency=critical] { color: #fafafa; background-color: #d01717; }
 Notification[category=sleep] { color: #fafafa; background-color: #ffb31c; }
 Notification[appname=low] { color: #999; background-color: #272727; }

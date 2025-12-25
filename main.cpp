@@ -175,8 +175,14 @@ int notify(const QStringList &args) {
                 body = value;
             else if (key == "appname")
                 appName = value;
-            else if (key == "urgency") // low, normal, critical
-                hints["urgency"] = value;
+            else if (key == "urgency") { // low, normal, critical
+                if (value == "critical")
+                    hints["urgency"] = 2;
+                else if  (value == "low")
+                    hints["urgency"] = 0;
+                else
+                    hints["urgency"] = 1;
+            }
             else if (key == "timeout")
                 timeout = Qiq::msFromString(value);
             else if (key == "icon")
