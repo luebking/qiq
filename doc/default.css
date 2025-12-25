@@ -23,4 +23,6 @@ Notification QLabel[role=body] {color: #aaa;}
 Notification[urgency=low] { color: #999; background-color: #272727; }
 Notification[urgency=critical] { color: #fafafa; background-color: #d01717; }
 Notification[category=sleep] { color: #fafafa; background-color: #ffb31c; }
-Notification[appname=low] { color: #999; background-color: #272727; }
+
+Notification[category=volume] { color: #1793d0; }
+Notification[category=mute] { color: #d01717; }
