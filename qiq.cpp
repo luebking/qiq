@@ -1552,7 +1552,7 @@ bool Qiq::runInput() {
         }
         if (ret) {
             if (type < ForceOut) // ForceOut, Math and List means the user waits for a response
-                m_autoHide.start(3000);
+                m_autoHide.start(type == NoOut ? 250 : 3000);
             m_history.removeAll(m_input->text());
             m_history.append(m_input->text());
             if (m_history.size() > 1000)
