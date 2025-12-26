@@ -103,6 +103,14 @@ class DBusAdaptor : public QDBusAbstractAdaptor
 public:
     DBusAdaptor(Qiq *q) : QDBusAbstractAdaptor(q), qiq(q) { }
 public slots:
+    QString ask(const QString question, const QString echoMode = QString()) {
+        QLineEdit::EchoMode mode = QLineEdit::Normal;
+        if (echoMode == "password")
+            mode = QLineEdit::Password;
+        /* else if (echoMode == "lazypass") // this mode does unfortunately now what I though it'd do :(
+            mode = QLineEdit::PasswordEchoOnEdit; */
+        return qiq->ask(question, mode);
+    }
     QString filter(const QString source, const QString action = QString(), const QString fieldSeparator = QString()) {
         return qiq->filterCustom(source, action, fieldSeparator);
     }

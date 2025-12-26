@@ -98,13 +98,16 @@ Example:
 
 void help() {
     printf(
-"Usage:     %s countdown <timeout> [<message>]\n"
+"Usage:     %s ask <question> [<echo mode>]\n"
+"           %s countdown <timeout> [<message>]\n"
 "           %s daemon\n"
 "           %s filter <file> [<action> [<field separator>]]\n"
 "           %s notify <summary> [<features>]\n"
 "           %s reconfigure\n"
-"           %s toggle\n", gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname);
+"           %s toggle\n", gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname);
     printf(R"(-------------------------------------------------------------------------------------------------------------------
+ask         Ask the user to enter some test that will be printed to stdout
+            The echo mode can be "normal" (default) or "password"
 countdown   Run a countdown notification with optional message.
             Either fragment of h:m.s or XhYmZs will work (5.30 or 5m30s)
             A single number without any suffix is accepted as milliseconds.
@@ -116,7 +119,7 @@ filter      filter <file> [<action> [<field separator>]
 
             The special actions "%%clip" and "%%print" will put the result on the clipboard or (wait and) print it to stdout
             They also allow to remove or replace regular expressions from the result, eg. '%%clip/^[^\|]*\| //%%CRLF%%/\n'
-            will remove anything befire the first "| " and replace "%%CRLF%%" with "\n" (not! a newline)
+            will remove anything before the first "| " and replace "%%CRLF%%" with "\n" (not! a newline)
             like with the sed "s" operator the first char becomes the instruction separator, this does not have to be
             the slash "/". Eg. '%%print%%secret' will just remove every occurrence of "secret"
             Keep in mind that the serach tokens need to be escaped for regular expressions
@@ -223,7 +226,7 @@ int main (int argc, char **argv)
     QStringList parameters;
     bool isDaemon = false;
     if (argc > 1) {
-        QStringList validCommands = QString("countdown\ndaemon\nfilter\nreconfigure\ntoggle\nnotify").split('\n');
+        QStringList validCommands = QString("ask\ncountdown\ndaemon\nfilter\nreconfigure\ntoggle\nnotify").split('\n');
         command = QString::fromLocal8Bit(argv[1]);
         if (command == "qiq_daemon") {
             isDaemon = true;
@@ -243,7 +246,7 @@ int main (int argc, char **argv)
         if (command == "countdown") {
             command = "notify";
             if (parameters.count() < 1) {
-                printf("%s <time> [<message>]\n", gs_appname);
+                printf("%s countdown <time> [<message>]\n", gs_appname);
                 return 1;
             }
             const QString timeout = parameters.takeLast();
@@ -275,6 +278,21 @@ int main (int argc, char **argv)
             }
         }
         QDBusInterface qiq( "org.qiq.qiq", "/", "org.qiq.qiq" );
+        if (command == "ask") {
+            if (parameters.count() < 1) {
+                printf("%s ask <question> [<echo mode>]\n", gs_appname);
+                return 1;
+            }
+            QList<QVariant> vl;
+            for (const QString &s : parameters)
+                vl << s;
+            QDBusReply<QString> reply = qiq.callWithArgumentList(QDBus::Block, "ask", vl);
+            if (reply.isValid()) {
+                printf("%s\n", reply.value().toLocal8Bit().data());
+                return 0;
+            }
+            return 1;
+        }
         if (command == "toggle") {
             qiq.call(QDBus::NoBlock, "toggle");
             return 0;

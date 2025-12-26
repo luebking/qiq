@@ -719,6 +719,7 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
         }
         if (key == Qt::Key_Escape) {
             if (m_askingQuestion) {
+                m_askingQuestion = false;
                 m_input->clear();
                 m_input->hide(); // force
                 m_input->setEchoMode(QLineEdit::Normal);
@@ -1259,8 +1260,15 @@ void Qiq::printOutput(int exitCode) {
 }
 
 QString Qiq::ask(const QString &question, QLineEdit::EchoMode mode) {
+    const bool wasVisible= isVisible();
     m_askingQuestion = true;
-    message(question + "<p align=center>" + tr("(press escape to abort)") + "</p>");
+    QWidget *previousWidget = currentWidget();
+    if (!isActiveWindow())
+        toggle();
+    QString q = question;
+    if (!mightBeRichText(q))
+        q = "<h1 align=center>" + q + "</h1>";
+    message(q + "<p align=center>" + tr("(press escape to abort)") + "</p>");
     m_input->clear();
     m_input->setEchoMode(mode);
     QElapsedTimer time;
@@ -1272,6 +1280,9 @@ QString Qiq::ask(const QString &question, QLineEdit::EchoMode mode) {
     const QString response = m_input->text();
     m_input->clear();
     m_input->setEchoMode(QLineEdit::Normal);
+    if (!wasVisible)
+        m_autoHide.start(250);
+    setCurrentWidget(previousWidget);
     return response;
 }
 
