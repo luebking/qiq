@@ -18,5 +18,7 @@ hide)
 # MANY windowmanagers will completely lose track of the active window when an override_redirect window
 # that had the input focus hides, so make them focus the active window again
 xdotool getactivewindow windowfocus
+# and kick the WM again…
+xdotool key VoidSymbol
 ;;
 esac
