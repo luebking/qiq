@@ -20,6 +20,7 @@
 #define QIQ_H
 
 #include <QCoreApplication>
+#include <QLineEdit>
 #include <QtDBus/QDBusAbstractAdaptor>
 #include <QStackedWidget>
 #include <QTimer>
@@ -32,12 +33,12 @@ class QStringListModel;
 class QListView;
 class QTextBrowser;
 class QTextEdit;
-class QLineEdit;
 
 class Qiq : public QStackedWidget {
     Q_OBJECT
 public:
     Qiq();
+    QString ask(const QString &question, QLineEdit::EchoMode mode = QLineEdit::Normal);
     QString filterCustom(const QString source, const QString action = QString(), const QString fieldSeparator = QString());
     void reconfigure();
     static int msFromString(const QString &string);
@@ -92,6 +93,7 @@ private:
     int m_iconSize;
     bool m_selectionIsSynthetic;
     bool m_grabKeyboard;
+    bool m_askingQuestion;
 };
 
 class DBusAdaptor : public QDBusAbstractAdaptor

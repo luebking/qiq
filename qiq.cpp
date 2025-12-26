@@ -66,6 +66,7 @@ Qiq::Qiq() : QStackedWidget() {
     m_todoDirty = false;
     m_todoSaved = true;
     m_selectionIsSynthetic = false;
+    m_askingQuestion = false;
 
     addWidget(m_list = new QListView);
     m_list->setFrameShape(QFrame::NoFrame);
@@ -717,7 +718,7 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
             return true;
         }
         if (key == Qt::Key_Escape) {
-            if (m_input->echoMode() == QLineEdit::Password) {
+            if (m_askingQuestion) {
                 m_input->clear();
                 m_input->hide(); // force
                 m_input->setEchoMode(QLineEdit::Normal);
@@ -1257,11 +1258,28 @@ void Qiq::printOutput(int exitCode) {
     }
 }
 
+QString Qiq::ask(const QString &question, QLineEdit::EchoMode mode) {
+    m_askingQuestion = true;
+    message(question + "<p align=center>" + tr("(press escape to abort)") + "</p>");
+    m_input->clear();
+    m_input->setEchoMode(mode);
+    QElapsedTimer time;
+    while (m_askingQuestion) {
+        time.start();
+        QApplication::processEvents();
+        QThread::msleep(33-time.elapsed()); // maintain 30fps but don't live-lock in processEvents()
+    }
+    const QString response = m_input->text();
+    m_input->clear();
+    m_input->setEchoMode(QLineEdit::Normal);
+    return response;
+}
+
 
 bool Qiq::runInput() {
-    if (m_input->echoMode() == QLineEdit::Password) {
-        // got password password, fix mode and return
-        m_input->setEchoMode(QLineEdit::Normal);
+    if (m_askingQuestion) {
+        // got answer, fix mode and return - don't close
+        m_askingQuestion = false;
         return false;
     }
 
@@ -1518,16 +1536,8 @@ bool Qiq::runInput() {
                 process->waitForFinished(250);
                 if (process->state() == QProcess::NotRunning && process->exitCode()) {
                     detachIO->stop();
-                    message("<h3 align=center>" + command + "</h3><h1 align=center>" + tr("…enter your sudo password…") + "</h1><p align=center>" + tr("(press escape to abort)") + "</p>");
-                    m_input->clear();
-                    m_input->setEchoMode(QLineEdit::Password);
-                    QElapsedTimer time;
-                    while (m_input->echoMode() == QLineEdit::Password) {
-                        time.start();
-                        QApplication::processEvents();
-                        QThread::msleep(33-time.elapsed()); // maintain 30fps but don't live-lock in processEvents()
-                    }
-                    if (m_input->text().isEmpty()) {
+                    QString password = ask("<h3 align=center>" + command + "</h3><h1 align=center>" + tr("…enter your sudo password…") + "</h1>", QLineEdit::Password);
+                    if (password.isEmpty()) {
                         message("<h3 align=center>" + command + "</h3><h1 align=center>" + tr("aborted") + "</h1>");
                         setCurrentWidget(m_status);
                         if (detachIO) detachIO->deleteLater();
@@ -1542,7 +1552,7 @@ bool Qiq::runInput() {
                         ret = process->waitForStarted(250);
                         if (ret) {
                             process->waitForReadyRead(1000);
-                            process->write(m_input->text().toLocal8Bit());
+                            process->write(password.toLocal8Bit());
                             process->closeWriteChannel();
                         }
                     }
