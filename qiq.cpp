@@ -207,7 +207,9 @@ Qiq::Qiq() : QStackedWidget() {
             static const QString qiq_countdown("qiq countdown [<msg>] <t>");
             m_input->blockSignals(true);
             if (qiq_reconfigure.startsWith(text)) {
+                int pos = m_input->cursorPosition();
                 m_input->setText(qiq_reconfigure);
+                m_input->setSelection(pos, qiq_reconfigure.size()-pos);
                 text = qiq_reconfigure;
             } else if (qiq_countdown.startsWith(text)) {
                 m_input->setText(qiq_countdown);
