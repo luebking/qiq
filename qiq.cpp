@@ -1501,7 +1501,14 @@ bool Qiq::runInput() {
         if (sp < 0)
             sp = command.size();
         const QString bin = command.left(sp);
-        command.replace(0, sp, m_aliases.value(bin, bin));
+        QString alias = m_aliases.value(bin, bin);
+        if (alias != bin) {
+            if (alias.contains("%s")) {
+                alias.replace("%s", command.mid(sp+1));
+                sp = command.size();
+            }
+            command.replace(0, sp, alias);
+        }
         // the alias could have introduced an instruction
         // strip that and adhere, but don't override explict Types
         if (command.startsWith("?")) {
