@@ -10,6 +10,10 @@ QScrollBar::horizontal { height: 4px; }
 QScrollBar::handle { color: #666; background-color: #666; }
 /* TODO is the object name of the todo texteditor, so we don't catch the command output*/
 QTextEdit#TODO { font-family:"Hapole Pencil"; font-size:16pt; }
+/* The asterisk * is 183 */
+* { lineedit-password-character: 11096; }
+/* If you'd like to see the entered glyph for a second */
+/* * { lineedit-password-mask-delay: 1000; } */
 
 /* Notification style */
 Notifications { color: #fafafa; background-color: #161616; padding: 2px; }
