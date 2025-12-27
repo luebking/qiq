@@ -65,6 +65,7 @@ private:
     bool runInput();
     void setModel(QAbstractItemModel *model);
     void tokenUnderCursor(int &left, int &right);
+    void updateBinaries();
     void updateTodoTimers();
     QListView *m_list;
     QTextBrowser *m_disp;

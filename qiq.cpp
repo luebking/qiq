@@ -81,6 +81,14 @@ Qiq::Qiq(bool argb) : QStackedWidget() {
         }
     });
 
+    QTimer *binlistUpdater = new QTimer(this);
+    connect(binlistUpdater, &QTimer::timeout, this, &Qiq::updateBinaries);
+    m_inotify->addPaths(qEnvironmentVariable("PATH").split(':'));
+    connect(m_inotify, &QFileSystemWatcher::directoryChanged, [=](const QString &path) {
+        if (qEnvironmentVariable("PATH").split(':').contains(path))
+            binlistUpdater->start(5000);
+    });
+
     addWidget(m_list = new QListView);
     m_list->setFrameShape(QFrame::NoFrame);
     m_list->setUniformItemSizes(true);
@@ -395,6 +403,20 @@ void Qiq::updateTodoTimers() {
     }
 }
 
+void Qiq::updateBinaries() {
+    const QStringList paths = qEnvironmentVariable("PATH").split(':');
+    QStringList binaries;
+    for (const QString &s : paths)
+        binaries.append(QDir(s).entryList(QDir::Files|QDir::Executable));
+    binaries.append(m_aliases.keys());
+    binaries.removeDuplicates();
+    binaries.sort();
+    if (!m_bins)
+        m_bins = new QStringListModel(binaries);
+    else
+        m_bins->setStringList(binaries);
+}
+
 void Qiq::reconfigure() {
     QSettings settings("qiq");
     const QString sheetPath = QStandardPaths::locate(QStandardPaths::AppDataLocation, settings.value("Style", "default.css").toString());
@@ -524,18 +546,7 @@ void Qiq::reconfigure() {
     for (const QString &key : settings.childKeys())
         m_aliases.insert(key, settings.value(key).toString());
     settings.endGroup();
-
-    const QStringList paths = qEnvironmentVariable("PATH").split(':');
-    QStringList binaries;
-    for (const QString &s : paths)
-        binaries.append(QDir(s).entryList(QDir::Files|QDir::Executable));
-    binaries.append(m_aliases.keys());
-    binaries.removeDuplicates();
-    binaries.sort();
-    if (!m_bins)
-        m_bins = new QStringListModel(binaries);
-    else
-        m_bins->setStringList(binaries);
+    updateBinaries();
 
     if (oldDefaultSize != m_defaultSize)
         QMetaObject::invokeMethod(this, &Qiq::adjustGeometry, Qt::QueuedConnection);
