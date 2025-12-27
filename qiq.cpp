@@ -574,7 +574,36 @@ void Qiq::makeApplicationModel() {
     const QString keywords_de_DE = "Keywords[" + de_DE + "]";
     const QString keywords_de = "Keywords[" + de + "]";
     m_applications->clear();
+    static QString cachePath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + QDir::separator() + "apps.cache";
     const QStringList paths = QStandardPaths::standardLocations(QStandardPaths::ApplicationsLocation);
+    QFileInfo cacheInfo(cachePath);
+    bool useCache = false;
+    if (cacheInfo.exists()) {
+        useCache = true;
+        for (const QString &path : paths) {
+            if (QFileInfo(path).lastModified() > cacheInfo.lastModified()) {
+                useCache = false;
+                break;
+            }
+        }
+    }
+    QSettings cache(cachePath, QSettings::IniFormat);
+    if (useCache) {
+        for (const QString &entry : cache.childGroups()) {
+            cache.beginGroup(entry);
+            QStandardItem *item = new QStandardItem(QIcon::fromTheme(cache.value("Icon").toString()), cache.value("Name").toString());
+            item->setData(cache.value("Exec").toString(), AppExec);
+            item->setData(cache.value("Comment").toString(), AppComment);
+            item->setData(cache.value("Path"), AppPath);
+            item->setData(cache.value("Terminal", false).toBool(), AppNeedsTE);
+            item->setData(cache.value("Categories").toString().split(';'), AppCategories);
+            item->setData(cache.value("Keywords").toString().split(';'), AppKeywords);
+            m_applications->appendRow(item);
+            cache.endGroup();
+        }
+        return;
+    }
+    cache.clear();
     QSet<QString> augmented;
     for (const QString &path : paths) {
         QDir dir(path);
@@ -599,16 +628,45 @@ void Qiq::makeApplicationModel() {
             const QString exec = service.value("Exec").toString();
             if (exec.isEmpty())
                 continue;
-            QStandardItem *item = new QStandardItem(QIcon::fromTheme(service.value("Icon").toString()), name);
+            cache.beginGroup(file);
+            cache.setValue("Name", name);
+            cache.setValue("Exec", exec);
+            QString icon = service.value("Icon").toString();
+            if (!icon.isEmpty())
+                cache.setValue("Icon", icon);
+            QStandardItem *item = new QStandardItem(QIcon::fromTheme(icon), name);
             item->setData(exec, AppExec);
+            //-----
             LOCAL_AWARE(comment, "Comment")
+            if (!comment.isEmpty())
+                cache.setValue("Comment", comment);
             item->setData(comment, AppComment);
-            item->setData(service.value("Path"), AppPath);
-            item->setData(service.value("Terminal", false).toBool(), AppNeedsTE);
-            item->setData(service.value("Categories").toString().split(';'), AppCategories);
+            //-----
+            QVariant v = service.value("Path");
+            if (v.isValid()) {
+                cache.setValue("Path", v);
+                item->setData(v, AppPath);
+            }
+            //-----
+            v = service.value("Terminal");
+            bool terminal = false;
+            if (v.isValid()) {
+                terminal = v.toBool();
+                cache.setValue("Terminal", terminal);
+            }
+            item->setData(terminal, AppNeedsTE);
+            //-----
+            QString cats = service.value("Categories").toString();
+            if (!cats.isEmpty())
+                cache.setValue("Categories", cats);
+            item->setData(cats.split(';'), AppCategories);
+            //-----
             LOCAL_AWARE(keywords, "Keywords")
+            if (!keywords.isEmpty())
+                cache.setValue("Keywords", keywords);
             item->setData(keywords.split(';'), AppKeywords);
-            // mimetype
+            ///@todo mimetype ??
+            cache.endGroup();
             m_applications->appendRow(item);
         }
     }
