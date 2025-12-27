@@ -82,6 +82,7 @@ Qiq::Qiq(bool argb) : QStackedWidget() {
     });
 
     QTimer *binlistUpdater = new QTimer(this);
+    binlistUpdater->setSingleShot(true);
     connect(binlistUpdater, &QTimer::timeout, this, &Qiq::updateBinaries);
     m_inotify->addPaths(qEnvironmentVariable("PATH").split(':'));
     connect(m_inotify, &QFileSystemWatcher::directoryChanged, [=](const QString &path) {
@@ -200,6 +201,17 @@ Qiq::Qiq(bool argb) : QStackedWidget() {
     pal.setColor(QPalette::HighlightedText, QColor(0,0,0));
     m_input->setPalette(pal);
     m_input->installEventFilter(this);
+
+    m_applications = new QStandardItemModel;
+    QTimer *applicationUpdater = new QTimer(this);
+    applicationUpdater->setSingleShot(true);
+    connect(applicationUpdater, &QTimer::timeout, this, &Qiq::makeApplicationModel);
+    m_inotify->addPaths(QStandardPaths::standardLocations(QStandardPaths::ApplicationsLocation));
+    connect(m_inotify, &QFileSystemWatcher::directoryChanged, [=](const QString &path) {
+        if (QStandardPaths::standardLocations(QStandardPaths::ApplicationsLocation).contains(path))
+            applicationUpdater->start(5000);
+    });
+
     makeApplicationModel();
     m_files = new QFileSystemModel(this);
     m_files->setFilter(QDir::AllEntries|QDir::NoDotAndDotDot|QDir::AllDirs|QDir::Hidden|QDir::System);
@@ -561,7 +573,7 @@ void Qiq::makeApplicationModel() {
     const QString comment_de = "Comment[" + de + "]";
     const QString keywords_de_DE = "Keywords[" + de_DE + "]";
     const QString keywords_de = "Keywords[" + de + "]";
-    m_applications = new QStandardItemModel;
+    m_applications->clear();
     const QStringList paths = QStandardPaths::standardLocations(QStandardPaths::ApplicationsLocation);
     QSet<QString> augmented;
     for (const QString &path : paths) {
