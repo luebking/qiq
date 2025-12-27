@@ -574,7 +574,7 @@ void Qiq::makeApplicationModel() {
     const QString keywords_de_DE = "Keywords[" + de_DE + "]";
     const QString keywords_de = "Keywords[" + de + "]";
     m_applications->clear();
-    static QString cachePath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + QDir::separator() + "apps.cache";
+    static QString cachePath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + QDir::separator() + "apps." + de_DE + ".cache";
     const QStringList paths = QStandardPaths::standardLocations(QStandardPaths::ApplicationsLocation);
     QFileInfo cacheInfo(cachePath);
     bool useCache = false;
