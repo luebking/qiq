@@ -28,6 +28,7 @@
 class Notifications;
 class QAbstractItemModel;
 class QFileSystemModel;
+class QFileSystemWatcher;
 class QStandardItemModel;
 class QStringListModel;
 class QListView;
@@ -94,6 +95,7 @@ private:
     bool m_selectionIsSynthetic;
     bool m_grabKeyboard;
     bool m_askingQuestion;
+    QFileSystemWatcher *m_inotify;
 };
 
 class DBusAdaptor : public QDBusAbstractAdaptor

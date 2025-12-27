@@ -22,6 +22,7 @@
 #include <QElapsedTimer>
 #include <QFileIconProvider>
 #include <QFileSystemModel>
+#include <QFileSystemWatcher>
 #include <QKeyEvent>
 #include <QLineEdit>
 #include <QListView>
@@ -69,6 +70,16 @@ Qiq::Qiq(bool argb) : QStackedWidget() {
     m_todoSaved = true;
     m_selectionIsSynthetic = false;
     m_askingQuestion = false;
+
+    m_inotify = new QFileSystemWatcher(this);
+    connect(m_inotify, &QFileSystemWatcher::fileChanged, [=](const QString &path) {
+        // the stylesheet is supposed to be the only tracked file, the rest are dirs
+        QFile sheet(path);
+        if (sheet.exists() && sheet.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            qApp->setStyleSheet(QString::fromLocal8Bit(sheet.readAll()));
+            sheet.close();
+        }
+    });
 
     addWidget(m_list = new QListView);
     m_list->setFrameShape(QFrame::NoFrame);
@@ -386,10 +397,13 @@ void Qiq::updateTodoTimers() {
 
 void Qiq::reconfigure() {
     QSettings settings("qiq");
-
-    QFile sheet(QStandardPaths::locate(QStandardPaths::AppDataLocation, settings.value("Style", "default.css").toString()));
-    if (sheet.exists() && sheet.open(QIODevice::ReadOnly | QIODevice::Text))
+    const QString sheetPath = QStandardPaths::locate(QStandardPaths::AppDataLocation, settings.value("Style", "default.css").toString());
+    QFile sheet(sheetPath);
+    if (sheet.exists() && sheet.open(QIODevice::ReadOnly | QIODevice::Text)) {
         qApp->setStyleSheet(QString::fromLocal8Bit(sheet.readAll()));
+        m_inotify->removePaths(m_inotify->files()); // the style is the only file we track, discard in case it changed
+        m_inotify->addPath(sheetPath);
+    }
     sheet.close();
 
     m_aha = settings.value("AHA").toString();
