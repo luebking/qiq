@@ -37,7 +37,7 @@ class QTextEdit;
 class Qiq : public QStackedWidget {
     Q_OBJECT
 public:
-    Qiq();
+    Qiq(bool argb = false);
     QString ask(const QString &question, QLineEdit::EchoMode mode = QLineEdit::Normal);
     QString filterCustom(const QString source, const QString action = QString(), const QString fieldSeparator = QString());
     void reconfigure();

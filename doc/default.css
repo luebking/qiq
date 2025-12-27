@@ -2,7 +2,9 @@
 /* https://doc.qt.io/qt-6/stylesheet.html */
 
 /* Runner style, the main window is a QStackedWidget */
-QStackedWidget { color: #fafafa; background-color: #272727; }
+QStackedWidget * { color: #fafafa; background-color: #272727; } /**/
+/* if you want it to be translucent, do not style the main widget, but only its children
+QStackedWidget * { color: #fafafa; background-color: #99272727; } /**/
 QLineEdit { color: #fff; background-color: #99272727; border-radius: 1em; }
 QScrollBar, QScrollBar::add-line, QScrollBar::sub-line { color: transparent; background-color: transparent; }
 QScrollBar::vertical { width: 4px; }

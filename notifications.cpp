@@ -147,7 +147,9 @@ void Notification::setImage(const QPixmap &pix) {
 
 // ==============================================================
 
-Notifications::Notifications() : QFrame() {
+Notifications::Notifications(bool argb) : QFrame() {
+    if (argb)
+        setAttribute(Qt::WA_TranslucentBackground);
     QDBusConnection::sessionBus().registerService("org.freedesktop.Notifications");
     QDBusConnection::sessionBus().registerObject("/org/freedesktop/Notifications", this);
     new NotiDaptor(this);

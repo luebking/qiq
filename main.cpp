@@ -320,9 +320,10 @@ int main (int argc, char **argv)
     QStyle *style = QStyleFactory::create("Fusion"); // take some cotrol to allow predictable style sheets
     QApplication::setStyle(style);
     QApplication a(argc, argv);
+    a.setApplicationName("qiq");
     QApplication::setStyle(style);
     QCoreApplication::setAttribute(Qt::AA_UseStyleSheetPropagationInWidgetStyles, true);
-    Qiq *q = new Qiq;
+    Qiq *q = new Qiq(QString(argv[0]).contains("argb"));
     if (isDaemon)
         q->hide();
 #ifndef Q_OS_WIN

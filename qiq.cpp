@@ -49,14 +49,16 @@
 static QRegularExpression whitespace("[;&|[:space:]]+"); //[^\\\\]*
 
 
-Qiq::Qiq() : QStackedWidget() {
+Qiq::Qiq(bool argb) : QStackedWidget() {
+    if (argb)
+        setAttribute(Qt::WA_TranslucentBackground);
     QDBusConnection::sessionBus().registerService("org.qiq.qiq");
     QDBusConnection::sessionBus().registerObject("/", this);
     new DBusAdaptor(this);
 //    qEnvironmentVariable(const char *varName, const QString &defaultValue)
     addWidget(m_status = new QWidget);
 
-    m_notifications = new Notifications;
+    m_notifications = new Notifications(argb);
 
     m_bins = nullptr;
     m_external = nullptr;

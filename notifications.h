@@ -63,7 +63,7 @@ private:
 class Notifications : public QFrame {
     Q_OBJECT
 public:
-    Notifications();
+    Notifications(bool argb = false);
     enum NotStuff { AppName = Qt::UserRole + 1, AppIcon, Body, Actions, Hints, Date, ID, NoteWidget };
     uint add(QString app_name, uint replaces_id, QString app_icon, QString summary, QString body, QStringList actions, QVariantMap hints, int expire_timeout);
     void adjustGeometry();
