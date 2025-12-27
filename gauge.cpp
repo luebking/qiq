@@ -186,8 +186,15 @@ void Gauge::updateValues() {
             if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
                 bool ok;
                 QString s;
+                QByteArray ba;
                 while (!f.atEnd()) {
-                    s = QString::fromLocal8Bit(f.readLine());
+                    ba = f.readLine();
+                    if (ba.isEmpty()) {
+                        m_value[i] = 0;
+                        qDebug() << "No data when reading" << m_source[i];
+                        break;
+                    }
+                    s = QString::fromLocal8Bit(ba);
                     m_value[i] = s.toInt(&ok, 0);
                     if (ok)
                         break;
