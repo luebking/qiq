@@ -1098,7 +1098,9 @@ void Qiq::filter(const QString needle, MatchType matchType) {
         shrink = previousNeedle.startsWith(needle, Qt::CaseInsensitive);
     } else { // if (matchType == Partial)
         QStringList sl = needle.split(whitespace, Qt::SkipEmptyParts);
-        bool takeScores = !needle.isEmpty();
+        QStandardItemModel *takeScores = nullptr;
+        if (!needle.isEmpty())
+            takeScores = qobject_cast<QStandardItemModel*>(m_list->model());
         for (int i = 0; i < rows; ++i) {
             QModelIndex index = m_list->model()->index(i, 0, m_list->rootIndex());
             const QString &hay = index.data().toString();
@@ -1118,12 +1120,14 @@ void Qiq::filter(const QString needle, MatchType matchType) {
                     else if (hay.contains(needle))
                         score = 50;
                 }
-                m_list->model()->setData(index, score, MatchScore);
+                takeScores->setData(index, score, MatchScore);
             }
             m_list->setRowHidden(i, !(vis && ++visible));
         }
-        if (takeScores)
-            m_list->model()->sort(MatchScore, Qt::DescendingOrder);
+        if (takeScores) {
+            takeScores->setSortRole(MatchScore);
+            takeScores->sort(0, Qt::DescendingOrder);
+        }
         // sorting unfortunately trashes the order, so we need a second pass for that
         // (not special cased for the rare occasion of !takeScores)
         for (int i = 0; i < rows; ++i) {
