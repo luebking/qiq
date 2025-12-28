@@ -944,6 +944,11 @@ void Qiq::explicitlyComplete() {
         insertToken(false);
         return;
     }
+    if (currentWidget() == m_list && m_list->model() == m_cmdHistory) {
+        cycleResults = true;
+        insertToken(false);
+        return;
+    }
     QString path = lastToken;
     if (path.startsWith('~'))
         path.replace(0,1,QDir::homePath());
