@@ -961,15 +961,16 @@ void Qiq::explicitlyComplete() {
         fileInfo = QFileInfo(path.mid(1,path.size()-2));
         dir = fileInfo.dir();
     }
-    if (dir.exists() && (dir != QDir::current() || lastToken.contains('/'))) {
+
+    auto completeDir = [=](const QDir &cdir, bool force) {
         setCurrentWidget(m_list);
         setModel(m_files);
         cycleResults = true;
-        if (m_files->rootPath() == dir.absolutePath()) {
+        if (!force && m_files->rootPath() == cdir.absolutePath()) {
             insertToken(true);
             return; // idempotent, leave the directory as is
         }
-        m_files->setRootPath(dir.absolutePath());
+        m_files->setRootPath(cdir.absolutePath());
         m_list->setCurrentIndex(QModelIndex());
         QModelIndex newRoot = m_files->index(m_files->rootPath());
         m_list->setRootIndex(newRoot);
@@ -982,6 +983,10 @@ void Qiq::explicitlyComplete() {
                         }
                         cycleResults = true;
                         }, Qt::SingleShotConnection);
+    };
+
+    if (dir.exists() && (dir != QDir::current() || lastToken.contains('/'))) {
+        completeDir(dir, false);
         return;
     }
     auto stripInstruction = [=](QString &token) {
@@ -1002,6 +1007,10 @@ void Qiq::explicitlyComplete() {
                 QStringList completions = QString::fromLocal8Bit(complete.readAllStandardOutput()).split('\n');
                 if (completions.last().isEmpty())
                     completions.removeLast();
+                if (completions.isEmpty()) {
+                    completeDir(QDir::current(), true);
+                    return;
+                }
                 completions.removeDuplicates();
                 m_cmdCompleted->setStringList(completions);
                 setModel(m_cmdCompleted);
@@ -1207,7 +1216,9 @@ void Qiq::insertToken(bool selectDiff) {
     QString newToken = m_list->currentIndex().data().toString();
     if (m_list->model() == m_files) {
         QString path = m_files->rootPath();
-        if (!path.endsWith("/"))
+        if (QDir::current().absolutePath() == path)
+            path = QString();
+        else if (!path.endsWith("/"))
             path += "/";
         newToken = path + newToken;
         for (const QString &cmd : m_previewCmds) {

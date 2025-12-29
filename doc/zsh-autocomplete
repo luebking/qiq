@@ -50,6 +50,9 @@ zstyle '':completion:*'' list-separator ''''
 # we use zparseopts
 zmodload zsh/zutil
 
+_files() { }
+_path_files() { }
+
 # override compadd (this our hook)
 compadd () {
 
