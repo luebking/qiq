@@ -71,6 +71,7 @@ public:
     QStandardItemModel *model() { return m_model; }
     QPixmap pixmap(const QDBusArgument &iiibiiay) const;
     QPixmap pixmap(const QString &file) const;
+    void preview(const QString &file);
     void purge(uint id);
     void setOffset(QPoint offset) { m_offset = offset; }
     void recall(uint id);
@@ -83,6 +84,7 @@ private:
     QStandardItemModel *m_model;
     QMap<int, QStandardItem*> m_idMap;
     QPoint m_offset;
+    QLabel *m_preview;
 };
 
 

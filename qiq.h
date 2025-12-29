@@ -97,6 +97,7 @@ private:
     bool m_grabKeyboard;
     bool m_askingQuestion;
     QFileSystemWatcher *m_inotify;
+    QStringList m_previewCmds;
 };
 
 class DBusAdaptor : public QDBusAbstractAdaptor

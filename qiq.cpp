@@ -229,6 +229,7 @@ Qiq::Qiq(bool argb) : QStackedWidget() {
     connect(m_input, &QLineEdit::textChanged, [=](const QString &t) {
         QString text = t;
         if (text.isEmpty()) {
+            m_notifications->preview(text); // hide
             m_input->hide();
             if (currentWidget() == m_list && (m_list->model() == m_external || m_list->model() == m_notifications->model()))
                 return;
@@ -445,6 +446,7 @@ void Qiq::reconfigure() {
     m_term = settings.value("TERMINAL", qEnvironmentVariable("TERMINAL")).toString();
     m_cmdCompletion = settings.value("CmdCompleter").toString();
     m_cmdCompletionSep = settings.value("CmdCompletionSep").toString();
+    m_previewCmds = settings.value("PreviewCommands").toStringList();
     m_historyPath = settings.value("HistoryPath").toString();
     if (!m_historyPath.isEmpty() && !m_historySaver) {
         m_historySaver = new QTimer(this);
@@ -1208,6 +1210,12 @@ void Qiq::insertToken(bool selectDiff) {
         if (!path.endsWith("/"))
             path += "/";
         newToken = path + newToken;
+        for (const QString &cmd : m_previewCmds) {
+            if (m_input->text().startsWith(cmd)) {
+                m_notifications->preview(newToken);
+                break;
+            }
+        }
         if (newToken.contains(whitespace))
             newToken = "\"" + newToken + "\"";
     } else if (m_list->model() == m_cmdHistory) {
@@ -1401,6 +1409,7 @@ bool Qiq::runInput() {
         return false;
     }
 
+    m_notifications->preview(QString()); // hide
     QAbstractItemModel *currentModel = nullptr;
     if (currentWidget() == m_list)
         currentModel = m_list->model();

@@ -17,12 +17,18 @@
 */
 
 #include <QBoxLayout>
+#include <QColorSpace>
+#include <QCryptographicHash>
 #include <QDateTime>
 #include <QDBusArgument>
 #include <QDBusConnection>
+#include <QDir>
 #include <QFile>
+#include <QFileInfo>
+#include <QImageReader>
 #include <QStandardItem>
 #include <QStandardItemModel>
+#include <QStandardPaths>
 #include <QScreen>
 #include <QTimer>
 #include <QToolButton>
@@ -157,6 +163,7 @@ Notifications::Notifications(bool argb) : QFrame() {
     setWindowFlags(Qt::BypassWindowManagerHint);
     setAttribute(Qt::WA_X11NetWmWindowTypeNotification, true);
     m_id = 0;
+    m_preview = nullptr;
     m_model = new QStandardItemModel(this);
     QVBoxLayout *vl = new QVBoxLayout(this);
     vl->setContentsMargins(0, 0, 0, 0);
@@ -263,6 +270,92 @@ void Notifications::mapHints2Note(const QVariantMap &hints, Notification *note) 
 
     if (HAS_HINT("category"))
         note->setProperty("category", it->toString());
+}
+
+QPixmap thumbnail(const QString &path)
+{
+    static const int size = 512; // 1024
+    static const QString cachePath = QStandardPaths::writableLocation(QStandardPaths::GenericCacheLocation) + QLatin1String("/thumbnails/x-large/"); // xx-large
+    QImage thumb;
+    QString thumbPath, thumbURI;
+    QImageReader thumbReader;
+    thumbReader.setFileName(path);
+    if (!thumbReader.canRead())
+        return QPixmap();
+
+    thumbReader.setQuality(50);
+    QSize sz = thumbReader.size();
+    QSize origSz = sz;
+    sz.scale(QSize(size,size), Qt::KeepAspectRatio);
+    thumbReader.setScaledSize(sz);
+
+    bool useCache = origSz.width()*origSz.height() > size*size;
+    if (useCache) {
+        QFileInfo info(path);
+        QString canonicalPath = info.canonicalFilePath();
+        if (canonicalPath.isEmpty())
+            canonicalPath = info.absoluteFilePath();
+        thumbURI = QUrl::fromLocalFile(canonicalPath).adjusted(QUrl::RemovePassword).url();
+        QCryptographicHash md5(QCryptographicHash::Md5);
+        md5.addData(QFile::encodeName(thumbURI));
+        thumbPath = cachePath + QString::fromLatin1(md5.result().toHex()) + QStringLiteral(".png");
+        QFileInfo tInfo(thumbPath);
+        if (tInfo.exists() && info.metadataChangeTime() <= tInfo.lastModified() && info.lastModified() <= tInfo.lastModified()) {
+            thumbReader.setFileName(thumbPath);
+            if (thumbReader.read(&thumb)) {
+                int w = thumb.text("Thumb::Image::Width").toInt();
+                int h = thumb.text("Thumb::Image::Height").toInt();
+                if (origSz == QSize(w, h))
+                    return QPixmap::fromImage(thumb);
+            }
+        }
+        thumbReader.setFileName(path);
+    }
+
+    if (!thumbReader.read(&thumb))
+        return QPixmap();
+
+    if (useCache) {
+        // store thumbnail
+        if (!QFileInfo::exists(cachePath))
+            QDir().mkpath(cachePath);
+        QFileInfo info(thumbPath);
+        QDateTime lastModified = info.lastModified();
+        if (info.metadataChangeTime() > info.lastModified()) {
+            lastModified = info.metadataChangeTime();
+        }
+        thumb.setText(QStringLiteral("Thumb::MTime"), QString::number(lastModified.toSecsSinceEpoch()));
+        thumb.setText(QStringLiteral("Thumb::URI"), thumbURI);
+        thumb.setText(QStringLiteral("Thumb::Image::Width"), QString::number(origSz.width()));
+        thumb.setText(QStringLiteral("Thumb::Image::Height"), QString::number(origSz.height()));
+        thumb.setText("Software", "Qiq");
+        thumb.convertToColorSpace(QColorSpace::SRgb);
+        thumb.save(thumbPath);
+    }
+    return QPixmap::fromImage(thumb);
+}
+
+void Notifications::preview(const QString &file) {
+    QPixmap thumb;
+    if (!file.isEmpty())
+        thumb = thumbnail(file);
+    if (thumb.isNull() && m_preview) {
+        layout()->removeWidget(m_preview);
+        adjustGeometry();
+        if (!layout()->count())
+            hide();
+        return;
+    }
+    if (!m_preview)
+        m_preview = new QLabel(this);
+    // FFS, trotteltech… https://qt-project.atlassian.net/browse/QTBUG-136729
+    thumb.setDevicePixelRatio(qApp->primaryScreen()->devicePixelRatio());
+    m_preview->setPixmap(thumb);
+    layout()->addWidget(m_preview);
+    m_preview->show();
+    show();
+    adjustGeometry();
+    raise();
 }
 
 uint Notifications::add(QString app_name, uint replaces_id, QString app_icon, QString summary, QString body, QStringList actions, QVariantMap hints, int expire_timeout) {
