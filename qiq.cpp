@@ -511,6 +511,7 @@ void Qiq::reconfigure() {
                          settings.value(QString("ColorHigh%1").arg(i+1)).value<QColor>(), i);
 
             QString thresh = settings.value(QString("Threshold%1").arg(i+1)).toString();
+            g->setCriticalThreshold(-1, Gauge::None, QString(), i);
             bool ok = false; int v;
             if (thresh.size() > 1)
                 v = thresh.mid(1,-1).toInt(&ok);
