@@ -341,6 +341,9 @@ void Notifications::preview(const QString &file) {
         thumb = thumbnail(file);
     if (thumb.isNull() && m_preview) {
         layout()->removeWidget(m_preview);
+        m_preview->hide();
+        m_preview->setPixmap(QPixmap());
+        m_preview->setText(QString());
         adjustGeometry();
         if (!layout()->count())
             hide();
