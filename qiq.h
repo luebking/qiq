@@ -120,7 +120,11 @@ public slots:
     }
     Q_NOREPLY void toggle() { qiq->toggle(); }
     Q_NOREPLY void reconfigure() { qiq->reconfigure(); }
+    Q_NOREPLY void setLabel(QString gauge, const QString &label);
+    Q_NOREPLY void setRange(QString gauge, int min, int max);
+    Q_NOREPLY void setValue(QString gauge, int value);
 private:
+    int index(QString &gauge) const;
     Qiq *qiq;
 };
 

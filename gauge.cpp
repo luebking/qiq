@@ -38,7 +38,7 @@ void Gauge::setSource(QString source, int i) {
         m_type = Normal;
     }
     m_source[i] = source;
-    if (m_source[i].isEmpty()) {
+    if (m_source[i].isEmpty() || m_source[i] == "%dbus%") {
         m_value[i] = 0;
 //        m_timer.stop();
     } else {
@@ -179,7 +179,7 @@ void Gauge::updateValues() {
     }
     QMetaObject::Connection processDoneHandler[3];
     for (int i = 0; i < 3; ++i) {
-        if (m_source[i].isEmpty())
+        if (m_source[i].isEmpty() || m_source[i] == "%dbus%")
             continue;
         QFile f(m_source[i]);
         if (f.exists()) {
@@ -349,6 +349,13 @@ void Gauge::setWheelAction(QString action, Qt::ArrowType dir) {
     if (dir < 1 || dir > 4)
         return;
     m_wheelAction[dir-1] = action;
+}
+
+void Gauge::setValue(int value, int i) {
+    if (m_type == Clock || m_type == Memory)
+        return; // no
+    m_value[i] = value;
+    update();
 }
 
 void Gauge::enterEvent(QEnterEvent *event) {

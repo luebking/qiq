@@ -20,6 +20,7 @@ public:
     void setToolTip(const QString tip, uint cacheMs = 1000);
     void setThresholdsRedundant(bool redundant);
     void setWheelAction(QString action, Qt::ArrowType direction);
+    void setValue(int value, int i);
 signals:
     void critical(const QString &message, int ring);
     void uncritical(int ring);

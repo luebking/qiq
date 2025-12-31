@@ -104,7 +104,8 @@ void help() {
 "           %s filter <file> [<action> [<field separator>]]\n"
 "           %s notify <summary> [<features>]\n"
 "           %s reconfigure\n"
-"           %s toggle\n", gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname);
+"           %s set <gauge>[%%i] label|range|value <value> [<value>]\n"
+"           %s toggle\n", gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname);
     printf(R"(-------------------------------------------------------------------------------------------------------------------
 ask         Ask the user to enter some test that will be printed to stdout
             The echo mode can be "normal" (default) or "password"
@@ -131,6 +132,11 @@ notify      send a https://xdg.pages.freedesktop.org/xdg-specs/notification
             prints long help when invoked without any parameter
 
 reconfigure reload the configuration and update Qiq
+
+set         <gauge>[%%i] label|range|value <value> [<value>]
+            Set gauge label, value or range
+            value and range require one and two integer parameters and the gauge name must be suffixed with the
+            ring to change, eg. "Weather%%1" for the outmost ring of the "Weather" gauge
 
 toggle      shows, hides or activates Qiq depending on its current state
             It's what you want to bind your shortcut to ;)
@@ -226,7 +232,7 @@ int main (int argc, char **argv)
     QStringList parameters;
     bool isDaemon = false;
     if (argc > 1) {
-        QStringList validCommands = QString("ask\ncountdown\ndaemon\nfilter\nreconfigure\ntoggle\nnotify").split('\n');
+        QStringList validCommands = QString("ask\ncountdown\ndaemon\nfilter\nreconfigure\nset\ntoggle\nnotify").split('\n');
         command = QString::fromLocal8Bit(argv[1]);
         if (command == "qiq_daemon") {
             isDaemon = true;
@@ -252,7 +258,7 @@ int main (int argc, char **argv)
             const QString timeout = parameters.takeLast();
             int ms = Qiq::msFromString(timeout);
             if (ms < 0) {
-                qDebug() << "invalid timeout" << timeout;
+                printf("invalid timeout %i\n", ms);
                 return 1;
             }
 
@@ -299,6 +305,31 @@ int main (int argc, char **argv)
         }
         if (command == "reconfigure") {
             qiq.call(QDBus::NoBlock, "reconfigure");
+            return 0;
+        }
+        if (command == "set") {
+            if (parameters.count() < 3) {
+                printf("%s set <gauge>[%%i] label|range|value <value> [<value>]\n", gs_appname);
+                return 1;
+            }
+            QList<QVariant> vl;
+            vl << parameters.takeFirst(); // gauge
+            QString command = parameters.takeFirst();
+            bool integer = true;
+            if (command == "label") { integer = false; command = "setLabel"; }
+            else if (command == "range") command = "setRange";
+            else if (command == "value") command = "setValue";
+            else {
+                printf("%s set <gauge>[%%i] label|range|value <value> [<value>]\n", gs_appname);
+                return 1;
+            }
+            if (integer && !vl.first().toString().contains('%')) {
+                printf("You must specify a ring 1,2 or 3, eg. %s%%1\n", vl.first().toString().toLocal8Bit().data());
+                return 1;
+            }
+            for (const QString &s : parameters)
+                vl << (integer ? QVariant(s.toInt()) : QVariant(s));
+            qiq.callWithArgumentList(QDBus::NoBlock, command, vl);
             return 0;
         }
         if (command == "filter") {

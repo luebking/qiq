@@ -1881,3 +1881,30 @@ int Qiq::msFromString(const QString &string) {
     }
     return ms;
 }
+
+
+int DBusAdaptor::index(QString &gauge) const {
+    int split = gauge.lastIndexOf('%');
+    int r = gauge.mid(split+1).toUInt();
+    if (r < 1 || r > 3)
+        return 0;
+    gauge.truncate(split);
+    return r;
+}
+
+void DBusAdaptor::setLabel(QString gauge, const QString &label) {
+    if (Gauge *g = qiq->findChild<Gauge*>(gauge))
+        g->setLabel(label);
+}
+void DBusAdaptor::setRange(QString gauge, int min, int max) {
+    if (int i = index(gauge)) {
+    if (Gauge *g = qiq->findChild<Gauge*>(gauge))
+        g->setRange(min, max, i-1);
+    }
+}
+void DBusAdaptor::setValue(QString gauge, int value) {
+    if (int i = index(gauge)) {
+    if (Gauge *g = qiq->findChild<Gauge*>(gauge))
+        g->setValue(value, i-1);
+    }
+}
