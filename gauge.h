@@ -21,6 +21,7 @@ public:
     void setThresholdsRedundant(bool redundant);
     void setWheelAction(QString action, Qt::ArrowType direction);
     void setValue(int value, int i);
+    void toggle(bool on);
 signals:
     void critical(const QString &message, int ring);
     void uncritical(int ring);

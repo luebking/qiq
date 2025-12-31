@@ -117,7 +117,7 @@ void Gauge::checkCritical(int i) {
 }
 
 void Gauge::updateValues() {
-    if (!(isVisible() || m_threshValue[0] || m_threshValue[1] || m_threshValue[2])) {
+    if (!(isVisible() || std::accumulate(m_threshType, m_threshType+3,0))) {
         m_dirty = true;
         return;
     }
@@ -356,6 +356,21 @@ void Gauge::setValue(int value, int i) {
         return; // no
     m_value[i] = value;
     update();
+}
+
+void Gauge::toggle(bool on) {
+    if (!on) {
+        m_dirty = false;
+        m_timer.stop();
+        return;
+    }
+    for (int i = 0; i < 3; ++i) {
+        if (!(m_source[i].isEmpty() || m_source[i] == "%dbus%")) {
+            m_timer.start(m_interval);
+            updateValues();
+            return;
+        }
+    }
 }
 
 void Gauge::enterEvent(QEnterEvent *event) {

@@ -105,7 +105,8 @@ void help() {
 "           %s notify <summary> [<features>]\n"
 "           %s reconfigure\n"
 "           %s set <gauge>[%%i] label|range|value <value> [<value>]\n"
-"           %s toggle\n", gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname);
+"           %s toggle\n"
+"           %s toggle <gauge> off|on\n", gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname);
     printf(R"(-------------------------------------------------------------------------------------------------------------------
 ask         Ask the user to enter some test that will be printed to stdout
             The echo mode can be "normal" (default) or "password"
@@ -140,6 +141,8 @@ set         <gauge>[%%i] label|range|value <value> [<value>]
 
 toggle      shows, hides or activates Qiq depending on its current state
             It's what you want to bind your shortcut to ;)
+
+toggle      <gauge> off|on suspends or resumes <gauge> updates
 )");
 }
 
@@ -300,8 +303,25 @@ int main (int argc, char **argv)
             return 1;
         }
         if (command == "toggle") {
-            qiq.call(QDBus::NoBlock, "toggle");
-            return 0;
+            if (parameters.isEmpty()) {
+                qiq.call(QDBus::NoBlock, "toggle");
+                return 0;
+            }
+            bool on;
+            if (parameters.count() > 1) {
+                if (parameters.at(1) == "on")
+                    on = true;
+                else if (parameters.at(1) == "off")
+                    on = false;
+                else {
+                    printf("%s toggle <gauge> on|off\n", gs_appname);
+                    return 1;
+                }
+            }
+            QList<QVariant> vl;
+            vl << parameters.at(0) << on;
+            qiq.callWithArgumentList(QDBus::NoBlock, command, vl);
+            return 1;
         }
         if (command == "reconfigure") {
             qiq.call(QDBus::NoBlock, "reconfigure");

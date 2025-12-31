@@ -1892,6 +1892,11 @@ int DBusAdaptor::index(QString &gauge) const {
     return r;
 }
 
+void DBusAdaptor::toggle(QString gauge, bool on) {
+    if (Gauge *g = qiq->findChild<Gauge*>(gauge))
+        g->toggle(on);
+}
+
 void DBusAdaptor::setLabel(QString gauge, const QString &label) {
     if (Gauge *g = qiq->findChild<Gauge*>(gauge))
         g->setLabel(label);
