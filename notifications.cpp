@@ -104,6 +104,10 @@ void Notification::setIcon(const QString &icon) {
 }
 
 void Notification::setTimeout(int timeout) {
+    if (timeout < 0) {  // formula adapted fro QToolTip
+        const int l = m_summary->text().length() + m_body->text().length();
+        timeout = 10000 + 40 * qMax(0, l-100);
+    }
     if (timeout > 0) {
         m_timeout->start(timeout);
         setCountdown(m_countdown);
