@@ -1016,6 +1016,7 @@ void Qiq::explicitlyComplete() {
                 setModel(m_cmdCompleted);
                 setCurrentWidget(m_list);
                 filterInput();
+                insertToken(true);
             }
         }
     } else {
@@ -1426,7 +1427,8 @@ bool Qiq::runInput() {
         currentModel = m_list->model();
 
     // filter from custom list ==========================================================================================================
-    if (currentModel == m_external && m_externCmd != "_qiq") {
+    if (currentModel && // m_external is lazily created
+        currentModel == m_external && m_externCmd != "_qiq") {
         QModelIndex entry = m_list->currentIndex();
         if (entry.isValid()) {
             bool ret = false;
