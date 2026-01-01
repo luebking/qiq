@@ -343,14 +343,16 @@ void Notifications::preview(const QString &file) {
     QPixmap thumb;
     if (!file.isEmpty())
         thumb = thumbnail(file);
-    if (thumb.isNull() && m_preview) {
-        layout()->removeWidget(m_preview);
-        m_preview->hide();
-        m_preview->setPixmap(QPixmap());
-        m_preview->setText(QString());
-        adjustGeometry();
-        if (!layout()->count())
-            hide();
+    if (thumb.isNull()) {
+        if (m_preview) {
+            layout()->removeWidget(m_preview);
+            m_preview->hide();
+            m_preview->setPixmap(QPixmap());
+            m_preview->setText(QString());
+            adjustGeometry();
+            if (!layout()->count())
+                hide();
+        }
         return;
     }
     if (!m_preview)
