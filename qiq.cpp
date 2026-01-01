@@ -957,8 +957,8 @@ void Qiq::explicitlyComplete() {
         path.replace(0,1,QDir::homePath());
     QFileInfo fileInfo(path);
     QDir dir = fileInfo.dir();
-    if (!dir.exists() && path.startsWith('"') && path.endsWith('"')) {
-        fileInfo = QFileInfo(path.mid(1,path.size()-2));
+    if (!dir.exists() && path.startsWith('"')) {
+        fileInfo = QFileInfo(path.mid(1,path.size()-1-path.endsWith('"')));
         dir = fileInfo.dir();
     }
 
