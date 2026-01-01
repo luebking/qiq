@@ -16,4 +16,7 @@ isEmpty(PREFIX) {
 
 target.path = $$PREFIX/bin
 
-INSTALLS += target
+docs.files = doc/*
+docs.path = $$PREFIX/share/doc/qiq
+
+INSTALLS += target docs
