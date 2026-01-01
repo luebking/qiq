@@ -423,7 +423,7 @@ void Gauge::paintEvent(QPaintEvent *) {
     float f = 14 - 2*m_source[0].isEmpty() - 2*m_source[1].isEmpty() - 2*m_source[2].isEmpty();
     pen.setWidth(qMax(1, qRound(s/f)));
 
-    s -= pen.width();
+    s -= pen.width()+2;
     QRect r(0,0,s,s);
     r.moveCenter(rect().center());
 
