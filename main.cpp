@@ -307,7 +307,7 @@ int main (int argc, char **argv)
                 qiq.call(QDBus::NoBlock, "toggle");
                 return 0;
             }
-            bool on;
+            bool on = false;
             if (parameters.count() > 1) {
                 if (parameters.at(1) == "on")
                     on = true;
