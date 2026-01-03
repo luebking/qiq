@@ -404,7 +404,7 @@ void Qiq::updateTodoTimers() {
        m_todoTimers << timer;
        timer->setSingleShot(true);
        timer->setProperty("summary", tr("Qiq reminder: ") + head);
-       timer->setProperty("body", line.right(pipe + 1).trimmed());
+       timer->setProperty("body", line.mid(pipe + 1).trimmed());
        connect (timer, &QTimer::timeout, [=]() {
            notifyUser(timer->property("summary").toString(), timer->property("body").toString());
            m_todoTimers.removeAll(timer);
