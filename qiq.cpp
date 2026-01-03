@@ -26,12 +26,14 @@
 #include <QKeyEvent>
 #include <QLineEdit>
 #include <QListView>
+#include <QPainter>
 #include <QProcess>
 #include <QSet>
 #include <QSettings>
 #include <QStandardItemModel>
 #include <QStandardPaths>
 #include <QStringListModel>
+#include <QStyledItemDelegate>
 #include <QTextBrowser>
 #include <QThread>
 #include <QTimer>
@@ -712,17 +714,56 @@ void Qiq::adjustGeometry() {
     }
 }
 
+class CmdComplDelegate : public QStyledItemDelegate {
+    public:
+        CmdComplDelegate(QObject *parent) : QStyledItemDelegate(parent) {}
+        QString displayText(const QVariant &value, const QLocale &locale) const {
+            Q_UNUSED(locale)
+            return value.toString().section(separator, 0, 0);
+        }
+        void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override {
+            QStyledItemDelegate::paint(painter, option, index);
+            const QString comment = index.data().toString().section(separator, 1, -1);
+            if (comment.isEmpty())
+                return;
+            QColor oc = painter->pen().color(), c = oc;
+            c.setAlpha(c.alpha()/2);
+            painter->setPen(c);
+            QRect r(option.rect);
+            r.setX(r.x()+r.width()/3);
+            painter->drawText(r, comment);
+            painter->setPen(oc);
+        }
+        QString separator;
+};
+
 void Qiq::setModel(QAbstractItemModel *model) {
     static QFont monospace("monospace");
+    static QAbstractItemDelegate *mainDelegate = nullptr;
     m_list->setModel(model);
     if (model == m_applications)
         m_list->setIconSize(QSize(m_iconSize,m_iconSize));
     else
         m_list->setIconSize(QSize());
-    if (model == m_applications || model == m_notifications->model())
-        m_list->setFont(QFont());
-    else
+    if (model == m_applications) {
+        QFont fnt;
+        fnt.setPointSize(1.25*fnt.pointSize());
+        m_list->setFont(fnt);
+    } else if (model == m_notifications->model()) {
+         m_list->setFont(QFont());
+    } else {
         m_list->setFont(monospace);
+    }
+    if (model == m_cmdCompleted) {
+        static CmdComplDelegate *cmdComplDelegate = new CmdComplDelegate(this);
+        cmdComplDelegate->separator = m_cmdCompletionSep;
+        if (m_list->itemDelegate() != cmdComplDelegate) {
+            mainDelegate = m_list->itemDelegate();
+            m_list->setItemDelegate(cmdComplDelegate);
+        }
+    } else if (mainDelegate) {
+        m_list->setItemDelegate(mainDelegate);
+    }
 }
 
 bool Qiq::event(QEvent *event) {
