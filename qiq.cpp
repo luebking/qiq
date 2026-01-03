@@ -1261,18 +1261,23 @@ void Qiq::insertToken(bool selectDiff) {
     }
     QString newToken = m_list->currentIndex().data().toString();
     if (m_list->model() == m_files) {
-        QString path = m_files->rootPath();
-        if (QDir::current().absolutePath() == path)
-            path = QString();
-        else if (!path.endsWith("/"))
-            path += "/";
-        newToken = path + newToken;
+        // preserve present token to not screw the users input
+        int left, right;
+        tokenUnderCursor(left, right);
+        QString token = m_input->text().mid(left, right - left);
+        int slash = token.lastIndexOf(QDir::separator());
+        newToken = token.left(slash + 1) + newToken;
+        // need canonical path fpr preview
+        token = newToken;
+        if (token.startsWith('~'))
+            token.replace(0,1,QDir::homePath());
         for (const QString &cmd : m_previewCmds) {
             if (m_input->text().startsWith(cmd)) {
-                m_notifications->preview(newToken);
+                m_notifications->preview(token);
                 break;
             }
         }
+        // fix quotation for command
         if (newToken.contains(whitespace))
             newToken = "\"" + newToken + "\"";
     } else if (m_list->model() == m_cmdHistory) {
