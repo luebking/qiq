@@ -1026,6 +1026,7 @@ void Qiq::explicitlyComplete() {
         stripInstruction(lastCmd);
         filter(lastCmd, Begin);
         setCurrentWidget(m_list);
+        insertToken(true);
     }
     cycleResults = true;
 }
