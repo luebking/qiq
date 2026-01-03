@@ -593,10 +593,13 @@ void Qiq::makeApplicationModel() {
         }
     }
     QSettings cache(cachePath, QSettings::IniFormat);
+    QPixmap dummyPix(m_iconSize,m_iconSize);
+    dummyPix.fill(Qt::transparent);
+    QIcon dummyIcon(dummyPix);
     if (useCache) {
         for (const QString &entry : cache.childGroups()) {
             cache.beginGroup(entry);
-            QStandardItem *item = new QStandardItem(QIcon::fromTheme(cache.value("Icon").toString()), cache.value("Name").toString());
+            QStandardItem *item = new QStandardItem(QIcon::fromTheme(cache.value("Icon").toString(), dummyIcon), cache.value("Name").toString());
             item->setData(cache.value("Exec").toString(), AppExec);
             item->setData(cache.value("Comment").toString(), AppComment);
             item->setData(cache.value("Path"), AppPath);
@@ -639,7 +642,7 @@ void Qiq::makeApplicationModel() {
             QString icon = service.value("Icon").toString();
             if (!icon.isEmpty())
                 cache.setValue("Icon", icon);
-            QStandardItem *item = new QStandardItem(QIcon::fromTheme(icon), name);
+            QStandardItem *item = new QStandardItem(QIcon::fromTheme(icon, dummyIcon), name);
             item->setData(exec, AppExec);
             //-----
             LOCAL_AWARE(comment, "Comment")
