@@ -1331,6 +1331,13 @@ void Qiq::printOutput(int exitCode) {
     }
     bool showAsList = false;
     QByteArray stdout = process->readAllStandardOutput();
+    if (process->property("%clip%").toBool()) {
+        QString string = QString::fromLocal8Bit(stdout);
+        QGuiApplication::clipboard()->setText(string, QClipboard::Clipboard);
+        QGuiApplication::clipboard()->setText(string, QClipboard::Selection);
+        stdout.clear();
+        output += "<h3 align=center>" + tr("Copied to clipboard") + "</h3>";
+    }
     if (!stdout.isEmpty()) {
         if (process->property("qiq_type").toString() == "math") {
             output += "<pre align=center style=\"font-size:xx-large;\"><br><br>" + QString::fromLocal8Bit(stdout) + "</pre>";
@@ -1589,10 +1596,37 @@ bool Qiq::runInput() {
         process->setProperty("qiq_type", "list");
     }
     command = command.trimmed();
+    if (command == "%clip%") {
+        process->deleteLater();
+        message(QGuiApplication::clipboard()->text());
+        return true;
+    }
+
     QList<QProcess*> feeders;
+    bool clipIn = false;
     if (command.contains('|')) {
         QStringList components = command.split('|', Qt::SkipEmptyParts);
-        command = components.takeLast().trimmed();
+        if (!components.isEmpty())
+            command = components.takeLast().trimmed();
+        else {
+            process->deleteLater();
+            message("<h3>You come from nothing, you're going back to nothing.<br>What have you lost?</h3><h1>Nothing!</h1>");
+            return false;
+        }
+        if (command == "%clip%") {
+            if (components.isEmpty()) {
+                process->deleteLater();
+                message("<h1>So, clip… WHAT?!?</h1>");
+                return false;
+            }
+            type = ForceOut;
+            process->setProperty("%clip%", true);
+            command = components.takeLast().trimmed();
+        }
+        if (!components.isEmpty() && components.constFirst().trimmed() == "%clip%") {
+            clipIn = true;
+            components.removeFirst();
+        }
         QProcess *sink = process;
         for (int i = components.size() - 1; i >= 0; --i) {
             const QString component = components.at(i).trimmed();
@@ -1607,8 +1641,14 @@ bool Qiq::runInput() {
         }
     }
 
-    for (QProcess *feeder : feeders)
+    for (QProcess *feeder : feeders) {
         feeder->start();
+        if (clipIn) {
+            clipIn = false;
+            feeder->write(QGuiApplication::clipboard()->text().toLocal8Bit());
+            feeder->closeWriteChannel();
+        }
+    }
 
     QTimer *detachIO = nullptr;
     QMetaObject::Connection processDoneHandler;
@@ -1705,7 +1745,6 @@ bool Qiq::runInput() {
                         process->start(exec, args);
                         ret = process->waitForStarted(250);
                         if (ret) {
-                            process->waitForReadyRead(1000);
                             process->write(password.toLocal8Bit());
                             process->closeWriteChannel();
                         }
@@ -1714,6 +1753,11 @@ bool Qiq::runInput() {
                 if (!ret)
                     process->deleteLater();
                 return ret;
+            }
+            if (clipIn && !isSudo) {
+                clipIn = false;
+                process->write(QGuiApplication::clipboard()->text().toLocal8Bit());
+                process->closeWriteChannel();
             }
         }
         if (ret) {
