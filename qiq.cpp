@@ -1589,19 +1589,26 @@ bool Qiq::runInput() {
         process->setProperty("qiq_type", "list");
     }
     command = command.trimmed();
+    QList<QProcess*> feeders;
     if (command.contains('|')) {
-        QStringList components = command.split('|');
+        QStringList components = command.split('|', Qt::SkipEmptyParts);
         command = components.takeLast().trimmed();
         QProcess *sink = process;
         for (int i = components.size() - 1; i >= 0; --i) {
             const QString component = components.at(i).trimmed();
+            QStringList args = QProcess::splitCommand(component);
             QProcess *feeder = new QProcess(this);
+            feeder->setProgram(args.takeFirst());
+            feeder->setArguments(args);
             connect(feeder, &QProcess::finished, feeder, &QObject::deleteLater);
             feeder->setStandardOutputProcess(sink);
             sink = feeder;
-            feeder->startCommand(component);
+            feeders.prepend(feeder);
         }
     }
+
+    for (QProcess *feeder : feeders)
+        feeder->start();
 
     QTimer *detachIO = nullptr;
     QMetaObject::Connection processDoneHandler;
