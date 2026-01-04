@@ -118,9 +118,15 @@ Qiq::Qiq(bool argb) : QStackedWidget() {
     m_disp->setFocusPolicy(Qt::NoFocus);
     m_disp->document()->setDefaultStyleSheet("a{text-decoration:none;} hr{border-color:#666;}");
 //    m_disp->setFocusPolicy(Qt::ClickFocus);
+
+    m_pwd = new QLabel(this);
+    m_pwd->setObjectName("PWD_LABEL");
+    setPwd(QDir::currentPath());
+
     m_input = new QLineEdit(this);
     connect(this, &QStackedWidget::currentChanged, [=]() {
         adjustGeometry();
+        m_pwd->raise();
         m_input->raise();
         if (currentWidget() == m_list)
             connect(m_input, &QLineEdit::textEdited, this, &Qiq::filterInput, Qt::UniqueConnection);
@@ -777,9 +783,19 @@ void Qiq::setModel(QAbstractItemModel *model) {
     }
 }
 
+void Qiq::setPwd(QString path) {
+    QDir::setCurrent(path);
+    path.replace(QDir::homePath(), "~");
+    m_pwd->setText(path);
+    m_pwd->adjustSize();
+    m_pwd->move(width() - m_pwd->width() - 32, height() - m_pwd->height() - 16);
+}
+
 bool Qiq::event(QEvent *event) {
     static QString wmscript = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + QDir::separator() + "wmhacks";
-    if (event->type() == QEvent::Show) {
+    if (event->type() == QEvent::Resize) {
+        m_pwd->move(width() - m_pwd->width() - 32, height() - m_pwd->height() - 16);
+    } else if (event->type() == QEvent::Show) {
         if (m_grabKeyboard)
             grabKeyboard();
         QProcess::startDetached(wmscript, QStringList() << "show");
@@ -1571,7 +1587,7 @@ bool Qiq::runInput() {
         fInfo = QFileInfo(fInfo.filePath().mid(1,fInfo.filePath().size()-2));
     if (fInfo.exists()) {
         if (fInfo.isDir()) {
-            QDir::setCurrent(fInfo.filePath());
+            setPwd(fInfo.filePath());
             m_autoHide.stop(); // SIC! Just in case it's running
             return true;
         }

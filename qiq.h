@@ -29,6 +29,7 @@ class Notifications;
 class QAbstractItemModel;
 class QFileSystemModel;
 class QFileSystemWatcher;
+class QLabel;
 class QStandardItemModel;
 class QStringListModel;
 class QListView;
@@ -64,6 +65,7 @@ private:
     void printOutput(int exitCode);
     bool runInput();
     void setModel(QAbstractItemModel *model);
+    void setPwd(QString path);
     void tokenUnderCursor(int &left, int &right);
     void updateBinaries();
     void updateTodoTimers();
@@ -98,6 +100,7 @@ private:
     bool m_askingQuestion;
     QFileSystemWatcher *m_inotify;
     QStringList m_previewCmds;
+    QLabel *m_pwd;
 };
 
 class DBusAdaptor : public QDBusAbstractAdaptor
