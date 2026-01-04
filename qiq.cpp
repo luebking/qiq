@@ -225,7 +225,6 @@ Qiq::Qiq(bool argb) : QStackedWidget() {
     message("dummy"); // QTextBrowser needs a kick in the butt, cause the first document size isn't properly calculated (at all)
     setCurrentWidget(m_status);
     adjustGeometry();
-    activateWindow();
     raise();
     setUpdatesEnabled(true);
     connect(m_input, &QLineEdit::textChanged, [=](const QString &t) {
@@ -715,6 +714,7 @@ void Qiq::adjustGeometry() {
     } else {
         qDebug() << "fuck wayland";
     }
+    activateWindow(); // we might lose the mouse and the WM might withdraw the focus
 }
 
 class CmdComplDelegate : public QStyledItemDelegate {
@@ -1917,14 +1917,12 @@ void Qiq::toggle() {
         m_wasVisble = true;
         show();
         adjustGeometry();
-        activateWindow();
         raise();
         m_input->setFocus();
     } else if (isActiveWindow()) {
         hide();
     } else {
         adjustGeometry();
-        activateWindow();
         raise();
         m_input->setFocus();
     }
