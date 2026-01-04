@@ -121,7 +121,6 @@ Qiq::Qiq(bool argb) : QStackedWidget() {
 
     m_pwd = new QLabel(this);
     m_pwd->setObjectName("PWD_LABEL");
-    setPwd(QDir::currentPath());
 
     m_input = new QLineEdit(this);
     connect(this, &QStackedWidget::currentChanged, [=]() {
@@ -173,6 +172,7 @@ Qiq::Qiq(bool argb) : QStackedWidget() {
     m_todo->addAction(act);
 
     reconfigure();
+    setPwd(QDir::currentPath()); // update for colors, maybe later start dir
 
     if (!m_historyPath.isEmpty()) {
         QFile f(m_historyPath);
