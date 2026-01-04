@@ -693,6 +693,14 @@ void Qiq::adjustGeometry() {
         setMinimumSize(QSize(0,0));
     }
     if (currentWidget() == m_disp) {
+        QSize max(800,800);
+        if (const QScreen *screen = windowHandle()->screen()) {
+            max = screen->geometry().size()*0.666666667;
+        }
+        m_disp->setMinimumWidth(qMax(m_defaultSize.width(), max.width()));
+        if (m_disp->document()->idealWidth() < 0.75*m_disp->minimumWidth())
+            m_disp->setMinimumWidth(qMax(m_defaultSize.width(), 12+qCeil(m_disp->document()->idealWidth())));
+        m_disp->setMinimumHeight(qMin(max.height(), 12+qCeil(m_disp->document()->size().height())));
         adjustSize();
     } else if (currentWidget() == m_status) {
         resize(m_defaultSize);
@@ -1348,14 +1356,6 @@ void Qiq::message(const QString &string) {
     m_disp->setMinimumHeight(1);
     m_disp->resize(0,0);
     m_disp->setHtml(string);
-    QSize max(800,800);
-    if (const QScreen *screen = windowHandle()->screen()) {
-        max = screen->geometry().size()*0.666666667;
-    }
-    m_disp->setMinimumWidth(qMax(m_defaultSize.width(), max.width()));
-    if (m_disp->document()->idealWidth() < 0.75*m_disp->minimumWidth())
-        m_disp->setMinimumWidth(qMax(m_defaultSize.width(), 12+qCeil(m_disp->document()->idealWidth())));
-    m_disp->setMinimumHeight(qMin(max.height(), 12+qCeil(m_disp->document()->size().height())));
     if (currentWidget() != m_disp)
         setCurrentWidget(m_disp);
     else
