@@ -308,6 +308,7 @@ void Qiq::updateTodoTimers() {
         QStringList tokens = head.split(QRegularExpression("\\s"), Qt::SkipEmptyParts);
         static const QRegularExpression hmm("\\d{1,2}:\\d\\d");
         static const QRegularExpression MD("\\d{1,2}/\\d{1,2}");
+        static const QRegularExpression nth("st|nd|rd|th");
         int hour(-1), minute(-1), day(0), month(0), weekday(0);
         QRegularExpressionMatch match;
         for (const QString &t : tokens) {
@@ -332,7 +333,25 @@ void Qiq::updateTodoTimers() {
                     day = match.captured(0).section('/', 1, 1).toInt();
                     if (month > 12 || day > 31)
                         month = day = 0;
+                    continue;
                 }
+                QString s = t.section('/', 1, 1);
+                if (s.last(2).contains(nth))
+                    s.chop(2);
+                bool ok;
+                day = s.toInt(&ok);
+                if (!ok || day > 31) {
+                    day = 0;
+                    continue;
+                }
+                for (int i = 1; i < 13; ++i) {
+                    if (t.startsWith(QLocale::system().monthName(i, QLocale::ShortFormat).remove('.'))) {
+                        month = i; break;
+                    }
+                }
+                if (!month)
+                    day = 0;
+                continue;
             }
             if ((!day || !month) && t.endsWith('.')) { // EUR day or month
                 bool ok;
@@ -376,6 +395,13 @@ void Qiq::updateTodoTimers() {
                 }
                 if (month)
                     continue;
+            }
+            if (!day && t.last(2).contains(nth)) {
+                bool ok;
+                day = t.chopped(2).toInt(&ok);
+                if (!ok || day > 31)
+                    day = 0;
+                continue;
             }
         }
         if (hour < 0 && minute < 0 && !day && !month && !weekday)
