@@ -40,6 +40,7 @@ private:
     void checkCritical(int i);
     void readFromProcess();
     void readTipFromProcess();
+    void showToolTip();
     void updateValues();
     QColor m_colors[3][2];
     int m_range[3][2], m_value[3], m_threshValue[3];
@@ -50,6 +51,7 @@ private:
     qint64 m_lastTipDate;
     bool m_dirty;
     QTimer m_timer;
+    QTimer *m_tipTimer;
     Qt::Alignment m_align;
     QPoint m_offset;
     Type m_type;

@@ -17,6 +17,7 @@ Gauge::Gauge(QWidget *parent) : QWidget(parent) {
         m_threshType[i] = None;
         m_wasCritical[i] = false;
     }
+    m_tipTimer = nullptr;
     m_interval = 1000;
     m_tipCache = 1000;
     m_dirty = false;
@@ -375,8 +376,18 @@ void Gauge::toggle(bool on) {
 
 void Gauge::enterEvent(QEnterEvent *event) {
     QWidget::enterEvent(event);
+    if (m_tooltipSource.isEmpty())
+        return;
+    if (!m_tipTimer) {
+            m_tipTimer = new QTimer(this);
+            connect(m_tipTimer, &QTimer::timeout, this, &Gauge::showToolTip);
+    }
+    m_tipTimer->start(1000);
+}
+
+void Gauge::showToolTip() {
     if (QDateTime::currentMSecsSinceEpoch() - m_lastTipDate < m_tipCache) {
-        QToolTip::showText(event->globalPosition().toPoint(), m_tooltip, this, {}, 60000);
+        QToolTip::showText(QCursor::pos(), m_tooltip, this, {}, 60000);
     } else {
         if (m_tooltipSource.isEmpty())
             return;
@@ -389,7 +400,7 @@ void Gauge::enterEvent(QEnterEvent *event) {
                 return;
             }
             m_lastTipDate = QDateTime::currentMSecsSinceEpoch();
-            QToolTip::showText(event->globalPosition().toPoint(), m_tooltip, this, {}, 60000);
+            QToolTip::showText(QCursor::pos(), m_tooltip, this, {}, 60000);
         } else {
             QProcess *p = new QProcess(this);
             QMetaObject::Connection processDoneHandler = connect (p, &QProcess::finished, this, &Gauge::readTipFromProcess);
@@ -405,12 +416,15 @@ void Gauge::enterEvent(QEnterEvent *event) {
                 p->deleteLater();
                 m_tooltip = m_tooltipSource;
                 m_lastTipDate = QDateTime::currentMSecsSinceEpoch();
-                QToolTip::showText(event->globalPosition().toPoint(), m_tooltip, this, {}, 60000);
+                QToolTip::showText(QCursor::pos(), m_tooltip, this, {}, 60000);
             }
         }
     }
 }
+
 void Gauge::leaveEvent(QEvent *event) {
+    if (m_tipTimer)
+        m_tipTimer->stop();
     QWidget::leaveEvent(event);
     QToolTip::hideText();
 }
