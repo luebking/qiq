@@ -1061,24 +1061,33 @@ void Qiq::explicitlyComplete() {
     auto completeDir = [=](const QDir &cdir, bool force) {
         setCurrentWidget(m_list);
         setModel(m_files);
-        cycleResults = true;
-        if (!force && m_files->rootPath() == cdir.absolutePath()) {
-            insertToken(true);
-            return; // idempotent, leave the directory as is
+        bool delayed = false;
+        if (m_files->rootPath() != cdir.absolutePath()) {
+            delayed = true;
+            // this can take a moment to feed the model
+            connect(m_files, &QFileSystemModel::directoryLoaded, this, [=](const QString &path) {
+                            if (path == m_files->rootPath()) {
+                                m_files->sort(0);
+                                filter(fileInfo.fileName(), Begin);
+                                insertToken(true);
+                            }
+                            cycleResults = true;
+                            }, Qt::SingleShotConnection);
+            m_files->setRootPath(cdir.absolutePath());
+            force = true;
         }
-        m_files->setRootPath(cdir.absolutePath());
-        m_list->setCurrentIndex(QModelIndex());
-        QModelIndex newRoot = m_files->index(m_files->rootPath());
-        m_list->setRootIndex(newRoot);
-        previousNeedle.clear();
-        // this can take a moment to feed the model
-        connect(m_files, &QFileSystemModel::directoryLoaded, this, [=](const QString &path) {
-                        if (path == m_files->rootPath()) {
-                            m_files->sort(0);
-                            filter(fileInfo.fileName(), Begin);
-                        }
-                        cycleResults = true;
-                        }, Qt::SingleShotConnection);
+        if (force) {
+            QModelIndex newRoot = m_files->index(m_files->rootPath());
+            m_list->setCurrentIndex(QModelIndex());
+            m_list->setRootIndex(newRoot);
+            previousNeedle.clear();
+            if (!delayed) {
+                filter(fileInfo.fileName(), Begin);
+            }
+        }
+        if (!delayed)
+            insertToken(true);
+        cycleResults = true; // last because reset by filtering
     };
 
     if (dir.exists() && (dir != QDir::current() || lastToken.contains('/'))) {
