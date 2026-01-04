@@ -1766,6 +1766,11 @@ bool Qiq::runInput() {
             }
             command.remove(0,1);
         }
+
+        // cannot detach when writing stdin
+        if (clipIn && type == NoOut)
+            type = Normal;
+
         QStringList tokens = command.split(whitespace);
         for (const QString &token : tokens) {
             if (token.startsWith('$')) {
