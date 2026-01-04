@@ -186,6 +186,7 @@ Qiq::Qiq(bool argb) : QStackedWidget() {
         QFile f(m_todoPath);
         if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
             m_todo->setPlainText(QString::fromUtf8(f.readAll()));
+            updateTodoTimers();
             m_todoDirty = false;
             m_todoSaved = true;
         } else {
