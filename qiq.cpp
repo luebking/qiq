@@ -786,7 +786,8 @@ void Qiq::setModel(QAbstractItemModel *model) {
 void Qiq::setPwd(QString path) {
     QDir::setCurrent(path);
     path.replace(QDir::homePath(), "~");
-    m_pwd->setText(path);
+    m_pwd->setText(m_pwd->fontMetrics().elidedText(path, Qt::ElideLeft, width()/4-32));
+    m_pwd->setToolTip(path == m_pwd->text() ? QString() : path);
     m_pwd->adjustSize();
     m_pwd->move(width() - m_pwd->width() - 32, height() - m_pwd->height() - 16);
 }
