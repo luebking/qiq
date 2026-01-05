@@ -1344,6 +1344,8 @@ void Qiq::insertToken(bool selectDiff) {
                 newToken = "\"" + newToken;
             if (!newToken.endsWith("\""))
                 newToken += "\"";
+        } else if (newToken.startsWith("\"")) {
+            newToken.remove(0,1);
         }
     } else if (m_list->model() == m_cmdHistory) {
         m_input->setText(newToken);
