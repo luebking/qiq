@@ -1110,9 +1110,9 @@ void Qiq::explicitlyComplete() {
                 if (!m_cmdCompleted)
                     m_cmdCompleted = new QStringListModel(this);
                 QStringList completions = QString::fromLocal8Bit(complete.readAllStandardOutput()).split('\n');
-                if (completions.last().isEmpty())
+                if (!completions.isEmpty() && completions.constLast().isEmpty())
                     completions.removeLast();
-                if (completions.isEmpty()) {
+                if (!completions.isEmpty() && completions.constFirst().startsWith("__files"/*\r*/)) {
                     completeDir(QDir::current(), true);
                     return;
                 }
