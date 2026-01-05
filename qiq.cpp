@@ -1339,8 +1339,12 @@ void Qiq::insertToken(bool selectDiff) {
             }
         }
         // fix quotation for command
-        if (newToken.contains(whitespace))
-            newToken = "\"" + newToken + "\"";
+        if (newToken.contains(whitespace)) {
+            if (!newToken.startsWith("\""))
+                newToken = "\"" + newToken;
+            if (!newToken.endsWith("\""))
+                newToken += "\"";
+        }
     } else if (m_list->model() == m_cmdHistory) {
         m_input->setText(newToken);
         return;
