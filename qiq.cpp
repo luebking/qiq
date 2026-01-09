@@ -1859,14 +1859,17 @@ bool Qiq::runInput() {
                         process->start(exec, args);
                         ret = process->waitForStarted(250);
                         if (ret) {
+                            setCurrentWidget(m_status);
                             process->write(password.toLocal8Bit());
                             process->closeWriteChannel();
                         }
                     }
                 }
-                if (!ret)
+                if (!ret) {
                     process->deleteLater();
-                return ret;
+                    return ret;
+                }
+                m_input->setText(command); // restore for history
             }
             if (clipIn && !isSudo) {
                 clipIn = false;
