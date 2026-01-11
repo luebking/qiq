@@ -1429,11 +1429,11 @@ void Qiq::printOutput(int exitCode) {
     }
     QString output;
     if (exitCode) {
-        output = "<h3 align=center style=\"color:#d01717;\">" + process->program() + " " + process->arguments().join(" ") + "</h3><p style=\"color:#d01717;\">";
+        output = "<h3 align=center style=\"color:#d01717;\">" + process->program() + " " + process->arguments().join(" ") + "</h3><pre style=\"color:#d01717;\">";
         QByteArray error = process->readAllStandardError();
         if (!error.isEmpty()) {
             output += QString::fromLocal8Bit(error).toHtmlEscaped();
-        output += "</p>";
+        output += "</pre>";
         }
     } else {
         m_disp->setTextColor(m_disp->palette().color(m_disp->foregroundRole()));
