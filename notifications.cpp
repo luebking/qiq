@@ -121,19 +121,36 @@ void Notification::setTimeout(int timeout) {
 void Notification::countdown() {
     int remain = m_timeout->remainingTime();
     QString s = m_summaryString;
+    QString value;
+    int interval = 1000;
     if (remain > 60*60*1000) {
-        s.replace("%counter%", tr("%1 hours").arg(QString::number(remain/3600000.0f, 'f', 1)));
-        int spare = remain/3600000; spare = remain - 3600000*spare;
-        m_countdown->start(spare > 10 ? spare : 3600000 + spare);
+        value = tr("%1 hours").arg(QString::number(remain/3600000.0f, 'f', 1));
+        interval = 3600000;
+    } else if (remain > 5*60*1000) {
+        value = tr("%1 minutes").arg(qRound(remain/60000.0f));
+        interval = 60000;
     } else if (remain > 60*1000) {
-        s.replace("%counter%", tr("%1 minutes").arg(qRound(remain/60000.0f)));
-        int spare = remain/60000; spare = remain - 60000*spare;
-        m_countdown->start(spare > 10 ? spare : 60000 + spare);
+        int mins = remain/60000;
+        int spare = remain%60000;
+        if (spare > 52500) {
+            mins += 1;
+            spare = 0;
+        }
+        value = QString::number(mins);
+        if (spare > 37500)
+            value += "¾";
+        else if (spare > 22500)
+            value += "½";
+        else if (spare > 7500)
+            value += "¼";
+        value = tr("%1 minutes").arg(value);
+        interval = 15000;
     } else {
-        s.replace("%counter%", tr("%1 seconds").arg(qRound(remain/1000.0f)));
-        int spare = remain/1000; spare = remain - 1000*spare;
-        m_countdown->start(spare > 10 ? spare : 1000 + spare);
+        value = tr("%1 seconds").arg(qRound(remain/1000.0f));
     }
+    int spare = remain/interval; spare = remain - interval*spare;
+    m_countdown->start(spare > 10 ? spare : interval + spare);
+    s.replace("%counter%", value);
     m_summary->setText(s);
 }
 
