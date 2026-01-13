@@ -2023,28 +2023,29 @@ void Qiq::writeTodoList() {
 
 int Qiq::msFromString(const QString &string) {
     int ms = 0;
-    bool ok;
-    const QRegularExpression hour("\\d+[h:]"), minute("\\d+[m\\.]"), second("\\d+s");
+    const QRegularExpression hour("\\d+[h:]"), minute("\\d+[m\\.]"), second("\\d+s"), minute2(":\\d+"), second2("\\.\\d+");
     QRegularExpressionMatch match;
-    match = hour.match(string);
-    if (match.hasMatch()) {
-        int v = match.captured(0).chopped(1).toUInt(&ok);
-        if (ok)
-            ms += v*60*60*1000;
-    }
-    match = minute.match(string);
-    if (match.hasMatch()) {
-        int v = match.captured(0).chopped(1).toUInt(&ok);
-        if (ok)
-            ms += v*60*1000;
-    }
-    match = second.match(string);
-    if (match.hasMatch()) {
-        int v = match.captured(0).chopped(1).toUInt(&ok);
-        if (ok)
-            ms += v*1000;
-    }
+    auto matchedMs = [&match](uint factor, int sign) {
+        if (match.hasMatch()) {
+            bool ok;
+            QString s = match.captured(0);
+            if (sign == -1)
+                s.removeLast();
+            else if (sign == 1)
+                s.removeFirst();
+            int v = s.toUInt(&ok);
+            if (ok)
+                return v*factor;
+        }
+        return 0u;
+    };
+    match = hour.match(string);     ms += matchedMs(60*60*1000, -1);
+    match = minute.match(string);   ms += matchedMs(60*1000, -1);
+    match = minute2.match(string);  ms += matchedMs(60*1000, 1);
+    match = second.match(string);   ms += matchedMs(1000, -1);
+    match = second2.match(string);  ms += matchedMs(1000, 1);
     if (!ms) {
+        bool ok;
         ms = string.toUInt(&ok);
         if (!ok) {
             return -1;
