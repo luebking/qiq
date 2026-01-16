@@ -989,9 +989,8 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
             // … and valid indices
             m_list->currentIndex().isValid()) {
             if (m_list->model() == m_cmdHistory) {
+                m_cmdHistory->removeRows(m_list->currentIndex().row(), 1);
                 m_history.removeAll(m_list->currentIndex().data().toString());
-                m_cmdHistory->setStringList(m_history);
-                filter(previousNeedle, Partial);
             } else if (m_list->model() == m_notifications->model()) {
                 m_notifications->purge(m_list->currentIndex().data(Notifications::ID).toUInt());
             }
