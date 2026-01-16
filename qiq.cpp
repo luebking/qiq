@@ -1595,13 +1595,18 @@ bool Qiq::runInput() {
     // filter from history ==========================================================================================================
     if (currentModel == m_cmdHistory) {
         QModelIndex entry = m_list->currentIndex();
-        if (entry.isValid())
+        bool accept = false;
+        if (entry.isValid()) {
+            accept = entry.data().toString() == m_input->text();
             m_input->setText(entry.data().toString());
+        }
         setModel(m_bins);
         setCurrentWidget(m_status);
         m_cmdHistory->setStringList(QStringList());
         m_autoHide.stop(); // SIC! Just in case it's running
-        return false; // SIC! we don't want the input to be accepted, just changed
+        if (!accept)
+            return false; // SIC! we don't want the input to be accepted, just changed
+        // otherwise fall through to command handling
     }
     // =============================================================================================================================
 
