@@ -1097,7 +1097,7 @@ void Qiq::explicitlyComplete() {
         if (token.startsWith('=') || token.startsWith('?') || token.startsWith('!') || token.startsWith('#'))
             token.remove(0,1);
     };
-    QString lastCmd = m_input->text().left(m_input->cursorPosition()).section('|', -1, -1);
+    QString lastCmd = m_input->text().left(m_input->cursorPosition()).section(" | ", -1, -1);
     static const QRegularExpression leadingWS("^\\s*");
     lastCmd.remove(leadingWS);
     stripInstruction(lastCmd);
@@ -1261,7 +1261,7 @@ void Qiq::filter(const QString needle, MatchType matchType) {
     const int row = m_list->currentIndex().row();
     bool looksLikeCommand = false;
     if (m_list->currentIndex().isValid() && (m_list->model() == m_applications || m_list->model() == m_external))
-        looksLikeCommand = m_input->text().contains('|') || (m_input->text().trimmed().contains(whitespace) && m_bins->stringList().contains(m_input->text().split(whitespace).first()));
+        looksLikeCommand = m_input->text().contains(" | ") || (m_input->text().trimmed().contains(whitespace) && m_bins->stringList().contains(m_input->text().split(whitespace).first()));
     if (looksLikeCommand) {
         // if the user seems to enter a command, unselect any entries and force reselection
         m_list->setCurrentIndex(QModelIndex());
@@ -1720,8 +1720,8 @@ bool Qiq::runInput() {
 
     QList<QProcess*> feeders;
     bool clipIn = false;
-    if (command.contains('|')) {
-        QStringList components = command.split('|', Qt::SkipEmptyParts);
+    if (command.contains(" | ")) {
+        QStringList components = command.split(" | ", Qt::SkipEmptyParts);
         if (!components.isEmpty())
             command = components.takeLast().trimmed();
         else {
