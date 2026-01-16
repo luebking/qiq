@@ -1047,6 +1047,21 @@ void Qiq::explicitlyComplete() {
         insertToken(false);
         return;
     }
+
+    static const QString qiq_clip("%clip%");
+    if (qiq_clip.startsWith(lastToken)) {
+        int left, right;
+        tokenUnderCursor(left, right);
+        QString text = m_input->text();
+        text.replace(left, right - left, qiq_clip);
+        right = m_input->cursorPosition();
+        m_input->setText(text);
+        m_input->setSelection(right, left + qiq_clip.length() - right);
+        m_selectionIsSynthetic = true;
+        connect(m_input, &QLineEdit::selectionChanged, this, [=]() { m_selectionIsSynthetic = false; }, Qt::SingleShotConnection);
+        return;
+    }
+
     QString path = lastToken;
     if (path.startsWith('~'))
         path.replace(0,1,QDir::homePath());
