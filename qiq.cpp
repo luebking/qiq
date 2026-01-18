@@ -1049,7 +1049,7 @@ void Qiq::explicitlyComplete() {
     }
 
     static const QString qiq_clip("%clip%");
-    if (qiq_clip.startsWith(lastToken)) {
+    if (!lastToken.isEmpty() && qiq_clip.startsWith(lastToken)) {
         int left, right;
         tokenUnderCursor(left, right);
         QString text = m_input->text();
