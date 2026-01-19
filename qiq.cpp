@@ -1362,7 +1362,7 @@ void Qiq::insertToken(bool selectDiff) {
             newToken.remove(0,1);
         }
     } else if (m_list->model() == m_cmdHistory) {
-        int pos = selectDiff ? newToken.indexOf(m_input->text()) + m_input->cursorPosition() : -1;
+        int pos = selectDiff ? newToken.indexOf(m_input->text(), 0, Qt::CaseInsensitive) + m_input->cursorPosition() : -1;
         m_input->setText(newToken);
         if (pos > -1)
             m_input->setSelection(pos, newToken.length());
