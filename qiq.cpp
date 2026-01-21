@@ -291,7 +291,7 @@ Qiq::Qiq(bool argb) : QStackedWidget() {
     setFocusProxy(m_input);
     m_autoHide.setInterval(3000);
     m_autoHide.setSingleShot(true);
-    connect(&m_autoHide, &QTimer::timeout, this, &QWidget::hide);
+    connect(&m_autoHide, &QTimer::timeout, [=]() { hide(); setCurrentWidget(m_status); });
 }
 
 void Qiq::updateTodoTimers() {
@@ -1596,8 +1596,10 @@ bool Qiq::runInput() {
                 args << v;
                 ret = QProcess::startDetached(args.takeFirst(), args);
             }
-            if (!m_wasVisble)
+            if (!m_wasVisble) {
                 hide();
+                setCurrentWidget(m_status);
+            }
             else
                 m_autoHide.start(3000);
             return ret;

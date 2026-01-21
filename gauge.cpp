@@ -459,6 +459,10 @@ void Gauge::paintEvent(QPaintEvent *) {
             l = (1.0-percent[i])*l + percent[i]*l2;
             c = QColor::fromHsl(h, s, l);
         }
+//        if (!isActiveWindow()) {
+//            const int g = qGray(c.rgb());
+//            c = QColor(g,g,g);
+//        }
         c.setAlpha(64);
         pen.setColor(c);
         p.setPen(pen);
