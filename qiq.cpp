@@ -2110,3 +2110,10 @@ void DBusAdaptor::update(QString gauge) {
     if (Gauge *g = qiq->findChild<Gauge*>(gauge))
         g->updateValues();
 }
+QStringList DBusAdaptor::gauges() {
+    QStringList sl;
+    QList<Gauge*> gl = qiq->findChildren<Gauge*>();
+    for (const Gauge *g : gl)
+        sl << g->objectName();
+    return sl;
+}

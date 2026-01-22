@@ -102,13 +102,14 @@ R"(Usage:      %s ask <question> [<echo mode>]
             %s countdown <timeout> [<message>]
             %s daemon
             %s filter <file> [<action> [<field separator>]]
+            %s gauges
             %s notify <summary> [<features>]
             %s reconfigure
             %s set <gauge>[%%i] label|range|value <value> [<value>]
             %s toggle
             %s toggle <gauge> off|on
             %s update <gauge>
-)", gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname);
+)", gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname);
     printf(R"(-------------------------------------------------------------------------------------------------------------------
 ask         Ask the user to enter some test that will be printed to stdout
             The echo mode can be "normal" (default) or "password"
@@ -130,6 +131,8 @@ filter      filter <file> [<action> [<field separator>]
 
             The field separator is an arbitrary string that allows to show human readable text (the first field)
             but pass a number or other technical value to the action.
+
+gauges      list all gauges
 
 notify      send a https://xdg.pages.freedesktop.org/xdg-specs/notification
             prints long help when invoked without any parameter
@@ -239,7 +242,7 @@ int main (int argc, char **argv)
     QStringList parameters;
     bool isDaemon = false;
     if (argc > 1) {
-        QStringList validCommands = QString("ask\ncountdown\ndaemon\nfilter\nreconfigure\nset\ntoggle\nnotify\nupdate").split('\n');
+        QStringList validCommands = QString("ask\ncountdown\ndaemon\nfilter\ngauges\nreconfigure\nset\ntoggle\nnotify\nupdate").split('\n');
         command = QString::fromLocal8Bit(argv[1]);
         if (command == "qiq_daemon") {
             isDaemon = true;
@@ -302,6 +305,15 @@ int main (int argc, char **argv)
             QDBusReply<QString> reply = qiq.callWithArgumentList(QDBus::Block, "ask", vl);
             if (reply.isValid()) {
                 printf("%s\n", reply.value().toLocal8Bit().data());
+                return 0;
+            }
+            return 1;
+        }
+        if (command == "gauges") {
+            QDBusReply<QStringList> reply = qiq.callWithArgumentList(QDBus::Block, "gauges", QList<QVariant>());
+            if (reply.isValid()) {
+                for (const QString &s : reply.value())
+                    printf("%s\n", s.toLocal8Bit().data());
                 return 0;
             }
             return 1;

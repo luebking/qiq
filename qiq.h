@@ -121,6 +121,7 @@ public slots:
     QString filter(const QString source, const QString action = QString(), const QString fieldSeparator = QString()) {
         return qiq->filterCustom(source, action, fieldSeparator);
     }
+    QStringList gauges();
     Q_NOREPLY void toggle() { qiq->toggle(); }
     Q_NOREPLY void toggle(QString gauge, bool on);
     Q_NOREPLY void reconfigure() { qiq->reconfigure(); }
