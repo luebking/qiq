@@ -2106,3 +2106,7 @@ void DBusAdaptor::setValue(QString gauge, int value) {
         g->setValue(value, i-1);
     }
 }
+void DBusAdaptor::update(QString gauge) {
+    if (Gauge *g = qiq->findChild<Gauge*>(gauge))
+        g->updateValues();
+}

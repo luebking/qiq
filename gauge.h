@@ -22,6 +22,7 @@ public:
     void setWheelAction(QString action, Qt::ArrowType direction);
     void setValue(int value, int i);
     void toggle(bool on);
+    void updateValues();
 signals:
     void critical(const QString &message, int ring);
     void uncritical(int ring);
@@ -41,7 +42,6 @@ private:
     void readFromProcess();
     void readTipFromProcess();
     void showToolTip();
-    void updateValues();
     QColor m_colors[3][2];
     int m_range[3][2], m_value[3], m_threshValue[3];
     uint m_interval, m_tipCache, m_labelFlags;

@@ -98,15 +98,17 @@ Example:
 
 void help() {
     printf(
-"Usage:     %s ask <question> [<echo mode>]\n"
-"           %s countdown <timeout> [<message>]\n"
-"           %s daemon\n"
-"           %s filter <file> [<action> [<field separator>]]\n"
-"           %s notify <summary> [<features>]\n"
-"           %s reconfigure\n"
-"           %s set <gauge>[%%i] label|range|value <value> [<value>]\n"
-"           %s toggle\n"
-"           %s toggle <gauge> off|on\n", gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname);
+R"(Usage:      %s ask <question> [<echo mode>]
+            %s countdown <timeout> [<message>]
+            %s daemon
+            %s filter <file> [<action> [<field separator>]]
+            %s notify <summary> [<features>]
+            %s reconfigure
+            %s set <gauge>[%%i] label|range|value <value> [<value>]
+            %s toggle
+            %s toggle <gauge> off|on
+            %s update <gauge>
+)", gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname, gs_appname);
     printf(R"(-------------------------------------------------------------------------------------------------------------------
 ask         Ask the user to enter some test that will be printed to stdout
             The echo mode can be "normal" (default) or "password"
@@ -143,6 +145,8 @@ toggle      shows, hides or activates Qiq depending on its current state
             It's what you want to bind your shortcut to ;)
 
 toggle      <gauge> off|on suspends or resumes <gauge> updates
+
+update      <gauge> immediately update <gauge> values
 )");
 }
 
@@ -235,7 +239,7 @@ int main (int argc, char **argv)
     QStringList parameters;
     bool isDaemon = false;
     if (argc > 1) {
-        QStringList validCommands = QString("ask\ncountdown\ndaemon\nfilter\nreconfigure\nset\ntoggle\nnotify").split('\n');
+        QStringList validCommands = QString("ask\ncountdown\ndaemon\nfilter\nreconfigure\nset\ntoggle\nnotify\nupdate").split('\n');
         command = QString::fromLocal8Bit(argv[1]);
         if (command == "qiq_daemon") {
             isDaemon = true;
@@ -321,7 +325,7 @@ int main (int argc, char **argv)
             QList<QVariant> vl;
             vl << parameters.at(0) << on;
             qiq.callWithArgumentList(QDBus::NoBlock, command, vl);
-            return 1;
+            return 0;
         }
         if (command == "reconfigure") {
             qiq.call(QDBus::NoBlock, "reconfigure");
@@ -349,6 +353,16 @@ int main (int argc, char **argv)
             }
             for (const QString &s : parameters)
                 vl << (integer ? QVariant(s.toInt()) : QVariant(s));
+            qiq.callWithArgumentList(QDBus::NoBlock, command, vl);
+            return 0;
+        }
+        if (command == "update") {
+            if (parameters.count() < 1) {
+                printf("%s update <gauge>\n", gs_appname);
+                return 1;
+            }
+            QList<QVariant> vl;
+            vl << parameters.at(0);
             qiq.callWithArgumentList(QDBus::NoBlock, command, vl);
             return 0;
         }

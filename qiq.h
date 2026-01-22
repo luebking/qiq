@@ -127,6 +127,7 @@ public slots:
     Q_NOREPLY void setLabel(QString gauge, const QString &label);
     Q_NOREPLY void setRange(QString gauge, int min, int max);
     Q_NOREPLY void setValue(QString gauge, int value);
+    Q_NOREPLY void update(QString gauge);
 private:
     int index(QString &gauge) const;
     Qiq *qiq;
