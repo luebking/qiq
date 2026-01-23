@@ -846,6 +846,12 @@ void Qiq::enterEvent(QEnterEvent *ee) {
 }
 
 static QString previousNeedle;
+static bool isPrintable(const QString &s) {
+    for (int i = 0; i < s.size(); ++i)
+        if (s.at(i).isPrint())
+            return true;
+    return false;
+}
 bool Qiq::eventFilter(QObject *o, QEvent *e) {
     if (o == m_input && e->type() == QEvent::KeyPress) {
         m_autoHide.stop(); // user interaction
@@ -995,7 +1001,7 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
                 m_notifications->purge(m_list->currentIndex().data(Notifications::ID).toUInt());
             }
         }
-        if (!m_input->isVisible() && static_cast<QKeyEvent*>(e)->text().isEmpty()) {
+        if (!m_input->isVisible() && !isPrintable(static_cast<QKeyEvent*>(e)->text())) {
             QApplication::sendEvent(currentWidget(), e);
             return true;
         }
