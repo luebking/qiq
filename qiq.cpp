@@ -831,10 +831,13 @@ bool Qiq::event(QEvent *event) {
         if (m_grabKeyboard)
             releaseKeyboard();
         QProcess::startDetached(wmscript, QStringList() << "hide");
-    } else if (event->type() == QEvent::ActivationChange && isActiveWindow()) {
-        if (m_grabKeyboard)
-            grabKeyboard();
-        QProcess::startDetached(wmscript, QStringList() << "activate");
+    } else if (event->type() == QEvent::ActivationChange) {
+        update();
+        if (isActiveWindow()) {
+            if (m_grabKeyboard)
+                grabKeyboard();
+            QProcess::startDetached(wmscript, QStringList() << "activate");
+        }
     }
     return QStackedWidget::event(event);
 }

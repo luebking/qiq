@@ -1,3 +1,21 @@
+/*
+ *   Qiq shell for Qt6
+ *   Copyright 2025 by Thomas Lübking <thomas.luebking@gmail.com>
+ *
+ *   This program is free software; you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License version 2
+ *
+ *   This program is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details
+ *
+ *   You should have received a copy of the GNU General Public
+ *   License along with this program; if not, write to the
+ *   Free Software Foundation, Inc.,
+ *   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+*/
+
 #include <QDateTime>
 #include <QEnterEvent>
 #include <QFile>
@@ -459,15 +477,12 @@ void Gauge::paintEvent(QPaintEvent *) {
             l = (1.0-percent[i])*l + percent[i]*l2;
             c = QColor::fromHsl(h, s, l);
         }
-//        if (!isActiveWindow()) {
-//            const int g = qGray(c.rgb());
-//            c = QColor(g,g,g);
-//        }
-        c.setAlpha(64);
+        int div = isActiveWindow() ? 1 : 4;
+        c.setAlpha(64/div);
         pen.setColor(c);
         p.setPen(pen);
         p.drawEllipse(r);
-        c.setAlpha(255);
+        c.setAlpha(255/div);
         pen.setColor(c);
         p.setPen(pen);
         if (percent[i] > 0.98) // avoid butt-on-butt stuff
