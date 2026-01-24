@@ -470,7 +470,7 @@ void Gauge::paintEvent(QPaintEvent *) {
         c.setAlpha(255);
         pen.setColor(c);
         p.setPen(pen);
-        if (percent[i] > 0.99) // avoid butt-on-butt stuff
+        if (percent[i] > 0.98) // avoid butt-on-butt stuff
             p.drawEllipse(r);
         else
             p.drawArc(r, 90<<4, -5760.0*percent[i]);
