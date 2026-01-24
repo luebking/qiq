@@ -1348,12 +1348,14 @@ void Qiq::insertToken(bool selectDiff) {
         QString token = m_input->text().mid(left, right - left);
         int slash = token.lastIndexOf(QDir::separator());
         newToken = token.left(slash + 1) + newToken;
-        // need canonical path fpr preview
-        token = newToken;
-        if (token.startsWith('~'))
-            token.replace(0,1,QDir::homePath());
         for (const QString &cmd : m_previewCmds) {
             if (m_input->text().startsWith(cmd)) {
+                // need canonical path for preview
+                token = newToken;
+                if (token.startsWith("\""))
+                    token.remove(0,1);
+                if (token.startsWith('~'))
+                    token.replace(0,1,QDir::homePath());
                 m_notifications->preview(token);
                 break;
             }
