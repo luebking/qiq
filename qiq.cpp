@@ -278,9 +278,10 @@ Qiq::Qiq(bool argb) : QStackedWidget() {
             setCurrentWidget(m_list);
         }
 
-        const QSize ts = m_input->fontMetrics().boundingRect("xx" + text).size();
-        const int w = m_input->style()->sizeFromContents(QStyle::CT_LineEdit, nullptr, ts, m_input).width();
-        m_input->setGeometry((width() - w)/2, (height() - 2*ts.height())/2, w, 2*ts.height());
+        QSize ts = m_input->fontMetrics().boundingRect("xx" + text).size();
+        ts = m_input->style()->sizeFromContents(QStyle::CT_LineEdit, nullptr, ts, m_input);
+        const int w = qMin(width(), ts.width());
+        m_input->setGeometry((width() - w)/2, (height() - ts.height())/2, w, ts.height());
         m_input->show();
         m_input->setFocus();
     });
