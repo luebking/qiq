@@ -1404,7 +1404,7 @@ void Qiq::insertToken(bool selectDiff) {
         text.replace(left, right - left, newToken);
         pos = -(left+newToken.size());
     }
-    if (text == m_input->text())
+    if (text == m_input->text() || text.isEmpty())
         return; // idempotent, leave alone
     int sl = 0;
     if (pos > -1) {
