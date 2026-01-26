@@ -1054,8 +1054,8 @@ void Qiq::explicitlyComplete() {
     }
     if (currentWidget() == m_list && m_list->model() == m_cmdHistory) {
         cycleResults = true;
-        insertToken(false);
-        return;
+        if (insertToken(false))
+            return;
     }
 
     static const QString qiq_clip("%clip%");
@@ -1295,6 +1295,7 @@ void Qiq::filter(const QString needle, MatchType matchType) {
     } else if (!visible || (visible > 1 && shrink && prevVisible == 1)) {
         m_list->setCurrentIndex(QModelIndex());
     }
+    m_list->scrollTo(m_list->currentIndex());
     m_list->setEnabled(m_list->currentIndex().isValid());
     prevVisible = visible;
     if (visible == 1 && !shrink && !needle.isEmpty()) {
@@ -1335,14 +1336,15 @@ void Qiq::filterInput() {
     filter(text, Begin);
 }
 
-void Qiq::insertToken(bool selectDiff) {
+bool Qiq::insertToken(bool selectDiff) {
     if (m_list->model() == m_applications)
-        return; // nope. Never.
+        return false; // nope. Never.
     if (m_list->model() == m_external) {
         if (m_externCmd == "_qiq") { // this is because if the user wants the output as a list they might want to do some with those values
             m_input->setText(m_list->currentIndex().data().toString());
+            return true;
         }
-        return;
+        return false;
     }
     QString newToken = m_list->currentIndex().data().toString();
     if (m_list->model() == m_files) {
@@ -1374,11 +1376,13 @@ void Qiq::insertToken(bool selectDiff) {
             newToken.remove(0,1);
         }
     } else if (m_list->model() == m_cmdHistory) {
+        if (newToken.isEmpty())
+            return false;
         int pos = selectDiff ? newToken.indexOf(m_input->text(), 0, Qt::CaseInsensitive) + m_input->cursorPosition() : -1;
         m_input->setText(newToken);
         if (pos > -1)
             m_input->setSelection(pos, newToken.length());
-        return;
+        return true;
     } else if (m_list->model() == m_cmdCompleted) {
         if (!m_cmdCompletionSep.isEmpty()) {
             newToken = newToken.section(m_cmdCompletionSep, 0, 0);
@@ -1405,7 +1409,7 @@ void Qiq::insertToken(bool selectDiff) {
         pos = -(left+newToken.size());
     }
     if (text == m_input->text() || text.isEmpty())
-        return; // idempotent, leave alone
+        return false; // idempotent, leave alone
     int sl = 0;
     if (pos > -1) {
         sl = newToken.length();
@@ -1423,6 +1427,7 @@ void Qiq::insertToken(bool selectDiff) {
     } else {
         m_input->setCursorPosition(pos);
     }
+    return true;
 }
 
 bool mightBeRichText(const QString &text) {
