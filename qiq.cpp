@@ -1058,6 +1058,29 @@ void Qiq::explicitlyComplete() {
             return;
     }
 
+    auto completeAnnotated = [=](const QStringList &list) {
+        if (!m_cmdCompleted)
+            m_cmdCompleted = new QStringListModel(this);
+        m_cmdCompleted->setStringList(list);
+        setModel(m_cmdCompleted);
+        setCurrentWidget(m_list);
+        filterInput();
+        insertToken(true);
+        cycleResults = true;
+    };
+
+    if (!lastToken.isEmpty() && lastToken.startsWith('$')) {
+        QStringList envars = QProcessEnvironment::systemEnvironment().toStringList();
+        for (QString &s : envars) {
+            s.prepend('$');
+            int idx = s.indexOf('=');
+            if (idx > -1)
+                s.replace(idx, 1, m_cmdCompletionSep);
+        }
+        completeAnnotated(envars);
+        return;
+    }
+
     static const QString qiq_clip("%clip%");
     if (!lastToken.isEmpty() && qiq_clip.startsWith(lastToken)) {
         int left, right;
@@ -1131,8 +1154,6 @@ void Qiq::explicitlyComplete() {
             QProcess complete;
             complete.start(m_cmdCompletion, QStringList() << lastCmd);
             if (complete.waitForFinished(2000)) {
-                if (!m_cmdCompleted)
-                    m_cmdCompleted = new QStringListModel(this);
                 QStringList completions = QString::fromLocal8Bit(complete.readAllStandardOutput()).split('\n');
                 if (!completions.isEmpty() && completions.constLast().isEmpty())
                     completions.removeLast();
@@ -1141,11 +1162,7 @@ void Qiq::explicitlyComplete() {
                     return;
                 }
                 completions.removeDuplicates();
-                m_cmdCompleted->setStringList(completions);
-                setModel(m_cmdCompleted);
-                setCurrentWidget(m_list);
-                filterInput();
-                insertToken(true);
+                completeAnnotated(completions);
             }
         }
     } else {
@@ -1725,6 +1742,35 @@ bool Qiq::runInput() {
             summary.append(" %counter%");
         QVariantMap hints; hints["transient"] = true; hints["countdown"] = true;
         m_notifications->add("qiq", 0, "qiq", summary, QString(), QStringList(), hints, ms);
+        return true;
+    }
+    if (command.simplified().startsWith("type ")) {
+        QStringList tokens = QProcess::splitCommand(command);
+        if (tokens.count() < 2)
+            return false;
+        const QString token = tokens.at(1);
+        if (token.startsWith('$')) {
+            QString env = qEnvironmentVariable(token.mid(1).toUtf8().data());
+            if (!env.isNull()) {
+                message(tr("<b>%1</b> resolves to <i>%2</i>").arg(token).arg(env));
+                return true;
+            }
+        }
+        QString alias = m_aliases.value(token);
+        if (!alias.isNull()) {
+            message(tr("<b>%1</b> is an alias for <i>%2</i>").arg(token).arg(alias));
+            return true;
+        }
+        if (m_bins->stringList().contains(token)) {
+            const QStringList paths = qEnvironmentVariable("PATH").split(':');
+            for (const QString &s : paths) {
+                QDir dir(s);
+                if (dir.entryList(QDir::Files|QDir::Executable).contains(token)) {
+                    message(tr("<b>%1</b> is <i>%2</i>").arg(token).arg(QFileInfo(dir, token).canonicalFilePath()));
+                    return true;
+                }
+            }
+        }
         return true;
     }
     // custom command ===========================================================================================================
