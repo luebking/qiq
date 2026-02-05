@@ -27,6 +27,7 @@
 
 class Notifications;
 class QAbstractItemModel;
+class QDir;
 class QFileSystemModel;
 class QFileSystemWatcher;
 class QLabel;
@@ -55,6 +56,7 @@ private:
     enum MatchType { Begin = 0, Partial };
     enum AppStuff { AppExec = Qt::UserRole + 1, AppComment, AppPath, AppNeedsTE, AppCategories, AppKeywords, MatchScore };
     void adjustGeometry();
+    void completeDir(const QDir &cdir, bool force, const QString filter = QString());
     void explicitlyComplete();
     void filter(const QString needle, MatchType matchType);
     void filterInput();

@@ -860,6 +860,14 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
     if (o == m_input && e->type() == QEvent::KeyPress) {
         m_autoHide.stop(); // user interaction
         const int key = static_cast<QKeyEvent*>(e)->key();
+        auto unselect = [=]() {
+            int newPos = m_input->selectionEnd();
+            if (m_list->model() == m_files && m_input->text().at(newPos-1) == '"')
+                --newPos;
+            m_input->deselect();
+            m_selectionIsSynthetic = false;
+            m_input->setCursorPosition(newPos);
+        };
         if (key == Qt::Key_Tab) {
             if (m_input->text().isEmpty()) {
                 if (currentWidget() == m_status) {
@@ -881,12 +889,7 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
                     setCurrentWidget(m_status);
                 }
             } else if (m_selectionIsSynthetic && m_input->selectionEnd() > -1) {
-                int newPos = m_input->selectionEnd();
-                if (m_list->model() == m_files && m_input->text().at(newPos-1) == '"')
-                    --newPos;
-                m_input->deselect();
-                m_selectionIsSynthetic = false;
-                m_input->setCursorPosition(newPos);
+                unselect();
             } else {
                 explicitlyComplete();
             }
@@ -902,6 +905,8 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
             if (currentWidget() == m_list) {
                 m_list->setEnabled(true);
                 QApplication::sendEvent(currentWidget(), e);
+                if (m_selectionIsSynthetic && m_input->selectionEnd() > -1)
+                    unselect();
                 insertToken(false);
             } else {
                 int idx = m_currentHistoryIndex;
@@ -972,6 +977,10 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
             }
             return true;
         }
+        if (key == Qt::Key_F && (static_cast<QKeyEvent*>(e)->modifiers() & Qt::ControlModifier)) {
+            completeDir(QDir::current(), true);
+            return true;
+        }
         if (key == Qt::Key_R && (static_cast<QKeyEvent*>(e)->modifiers() & Qt::ControlModifier)) {
             m_inputBuffer = m_input->text();
             m_cmdHistory->setStringList(m_history);
@@ -1032,6 +1041,38 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
 }
 
 static bool cycleResults = false;
+void Qiq::completeDir(const QDir &cdir, bool force, const QString ffilter) {
+    setCurrentWidget(m_list);
+    setModel(m_files);
+    bool delayed = false;
+    if (m_files->rootPath() != cdir.absolutePath()) {
+        delayed = true;
+        // this can take a moment to feed the model
+        connect(m_files, &QFileSystemModel::directoryLoaded, this, [=](const QString &path) {
+                        if (path == m_files->rootPath()) {
+                            m_files->sort(0);
+                            filter(ffilter, Begin);
+                            insertToken(true);
+                        }
+                        cycleResults = true;
+                        }, Qt::SingleShotConnection);
+        m_files->setRootPath(cdir.absolutePath());
+        force = true;
+    }
+    if (force) {
+        QModelIndex newRoot = m_files->index(m_files->rootPath());
+        m_list->setCurrentIndex(QModelIndex());
+        m_list->setRootIndex(newRoot);
+        previousNeedle.clear();
+        if (!delayed) {
+            filter(ffilter, Begin);
+        }
+    }
+    if (!delayed)
+        insertToken(true);
+    cycleResults = true; // last because reset by filtering
+}
+
 void Qiq::explicitlyComplete() {
     const QString lastToken = m_input->text().left(m_input->cursorPosition()).section(whitespace, -1, -1);
     if (currentWidget() != m_list)
@@ -1105,40 +1146,8 @@ void Qiq::explicitlyComplete() {
         dir = fileInfo.dir();
     }
 
-    auto completeDir = [=](const QDir &cdir, bool force) {
-        setCurrentWidget(m_list);
-        setModel(m_files);
-        bool delayed = false;
-        if (m_files->rootPath() != cdir.absolutePath()) {
-            delayed = true;
-            // this can take a moment to feed the model
-            connect(m_files, &QFileSystemModel::directoryLoaded, this, [=](const QString &path) {
-                            if (path == m_files->rootPath()) {
-                                m_files->sort(0);
-                                filter(fileInfo.fileName(), Begin);
-                                insertToken(true);
-                            }
-                            cycleResults = true;
-                            }, Qt::SingleShotConnection);
-            m_files->setRootPath(cdir.absolutePath());
-            force = true;
-        }
-        if (force) {
-            QModelIndex newRoot = m_files->index(m_files->rootPath());
-            m_list->setCurrentIndex(QModelIndex());
-            m_list->setRootIndex(newRoot);
-            previousNeedle.clear();
-            if (!delayed) {
-                filter(fileInfo.fileName(), Begin);
-            }
-        }
-        if (!delayed)
-            insertToken(true);
-        cycleResults = true; // last because reset by filtering
-    };
-
     if (dir.exists() && (dir != QDir::current() || lastToken.contains('/'))) {
-        completeDir(dir, false);
+        completeDir(dir, false, fileInfo.fileName());
         return;
     }
     auto stripInstruction = [=](QString &token) {
@@ -1158,7 +1167,7 @@ void Qiq::explicitlyComplete() {
                 if (!completions.isEmpty() && completions.constLast().isEmpty())
                     completions.removeLast();
                 if (!completions.isEmpty() && completions.constFirst().startsWith("__files"/*\r*/)) {
-                    completeDir(QDir::current(), true);
+                    completeDir(QDir::current(), true, fileInfo.fileName());
                     return;
                 }
                 completions.removeDuplicates();
@@ -1420,7 +1429,7 @@ bool Qiq::insertToken(bool selectDiff) {
         const QChar firstChar = text.at(left);
         if (firstChar == '=' || firstChar == '?' || firstChar == '!' || firstChar == '#')
             ++left;
-        if (m_list->model() == m_files && newToken.startsWith('"') && text.at(left) != '"')
+        if (m_list->model() == m_files && newToken.startsWith('"') && !text.isEmpty() && text.at(left) != '"')
             ++cursorOffset;
         text.replace(left, right - left, newToken);
         pos = -(left+newToken.size());
