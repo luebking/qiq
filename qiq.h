@@ -55,7 +55,7 @@ protected:
 private:
     enum MatchType { Begin = 0, Partial };
     enum AppStuff { AppExec = Qt::UserRole + 1, AppComment, AppPath, AppNeedsTE, AppCategories, AppKeywords, MatchScore };
-    void adjustGeometry();
+    void adjustGeometry(bool now = false);
     void completeDir(const QDir &cdir, bool force, const QString filter = QString());
     void explicitlyComplete();
     void filter(const QString needle, MatchType matchType);

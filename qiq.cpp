@@ -231,7 +231,7 @@ Qiq::Qiq(bool argb) : QStackedWidget() {
     show();
     message("dummy"); // QTextBrowser needs a kick in the butt, cause the first document size isn't properly calculated (at all)
     setCurrentWidget(m_status);
-    adjustGeometry();
+    adjustGeometry(true);
     raise();
     setUpdatesEnabled(true);
     connect(m_input, &QLineEdit::textChanged, [=](const QString &t) {
@@ -599,7 +599,7 @@ void Qiq::reconfigure() {
     updateBinaries();
 
     if (oldDefaultSize != m_defaultSize)
-        QMetaObject::invokeMethod(this, &Qiq::adjustGeometry, Qt::QueuedConnection);
+        QMetaObject::invokeMethod(this, &Qiq::adjustGeometry, Qt::QueuedConnection, true);
 }
 
 void Qiq::makeApplicationModel() {
@@ -721,7 +721,22 @@ uint Qiq::notifyUser(const QString &summary, const QString &body, int urgency, u
     return m_notifications->add("Qiq", id, "qiq", summary, body, QStringList(), hints, 0);
 }
 
-void Qiq::adjustGeometry() {
+void Qiq::adjustGeometry(bool now) {
+    static QTimer *collector = nullptr;
+    if (!now) {
+        if (!collector) {
+            collector = new QTimer(this);
+            collector->setInterval(10);
+            collector->setSingleShot(true);
+            connect (collector, &QTimer::timeout, [=]() { adjustGeometry(true); });
+        }
+        collector->start();
+        return;
+    }
+    if (collector)
+        collector->stop();
+
+    QSize oldSize = size();
     if (currentWidget() != m_disp) {
         m_disp->setMinimumSize(QSize(0,0));
         setMinimumSize(QSize(0,0));
@@ -745,6 +760,9 @@ void Qiq::adjustGeometry() {
             sz.setHeight(qMax(qMin(r.bottom()+r.height(), sz.height()), 3*m_input->height()));
         }
         resize(sz);
+    }
+    if (width() <= oldSize.width() && width() > 0.85*oldSize.width() && height() <= oldSize.height() && height() > 0.85*oldSize.height()) {
+        resize(oldSize);
     }
     QRect r = m_input->rect();
     r.moveCenter(rect().center());
