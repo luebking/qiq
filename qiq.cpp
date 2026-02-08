@@ -1326,7 +1326,8 @@ void Qiq::filter(const QString needle, MatchType matchType) {
         }
         shrink = previousNeedle.contains(needle, Qt::CaseInsensitive);
     }
-    previousNeedle = needle;
+    if (!needle.isEmpty())
+        previousNeedle = needle;
     const int row = m_list->currentIndex().row();
     bool looksLikeCommand = false;
     if (m_list->currentIndex().isValid() && (m_list->model() == m_applications || m_list->model() == m_external))
