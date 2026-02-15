@@ -50,6 +50,7 @@
 #include "qiq.h"
 
 static QRegularExpression whitespace("[;&|[:space:]]+"); //[^\\\\]*
+#define HIST_SIZE 1000
 
 
 Qiq::Qiq(bool argb) : QStackedWidget() {
@@ -72,7 +73,7 @@ Qiq::Qiq(bool argb) : QStackedWidget() {
     m_todoSaved = true;
     m_selectionIsSynthetic = false;
     m_askingQuestion = false;
-    m_currentHistoryIndex = 1001;
+    m_currentHistoryIndex = HIST_SIZE + 1;
 
     m_inotify = new QFileSystemWatcher(this);
     connect(m_inotify, &QFileSystemWatcher::fileChanged, [=](const QString &path) {
@@ -938,7 +939,7 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
                 else
                     --idx;
                 if (idx < 0) {
-                    m_currentHistoryIndex = 1001;
+                    m_currentHistoryIndex = HIST_SIZE + 1;
                     m_input->setText(m_inputBuffer);
                 } else if (idx < m_history.size()) {
                     m_currentHistoryIndex = idx;
@@ -1998,9 +1999,9 @@ bool Qiq::runInput() {
                 m_autoHide.start(type == NoOut ? 250 : 3000);
             m_history.removeAll(m_input->text());
             m_history.prepend(m_input->text());
-            if (m_history.size() > 1000)
+            if (m_history.size() > HIST_SIZE)
                 m_history.removeLast();
-            m_currentHistoryIndex = 1001;
+            m_currentHistoryIndex = HIST_SIZE + 1;
             if (m_historySaver) {
                 if (m_historySaver->remainingTime() < 4*m_historySaver->interval()/5) { // when the timer has 80% left, we just let it run out
                     static int bumpCounter = 0;
