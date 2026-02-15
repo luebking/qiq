@@ -72,6 +72,7 @@ Qiq::Qiq(bool argb) : QStackedWidget() {
     m_todoSaved = true;
     m_selectionIsSynthetic = false;
     m_askingQuestion = false;
+    m_currentHistoryIndex = 1001;
 
     m_inotify = new QFileSystemWatcher(this);
     connect(m_inotify, &QFileSystemWatcher::fileChanged, [=](const QString &path) {
@@ -177,7 +178,7 @@ Qiq::Qiq(bool argb) : QStackedWidget() {
     if (!m_historyPath.isEmpty()) {
         QFile f(m_historyPath);
         if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            m_history = QString::fromUtf8(f.readAll()).split('\n');
+            m_history = QString::fromUtf8(f.readAll()).split('\n', Qt::SkipEmptyParts);
         } else {
             qDebug() << "could not open" << m_historyPath << "for reading";
         }
@@ -928,18 +929,18 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
                 insertToken(false);
             } else {
                 int idx = m_currentHistoryIndex;
-                if (idx < 0) {
+                if (idx >= m_history.size()) {
                     m_inputBuffer = m_input->text();
-                    idx = m_history.size();
+                    idx = -1;
                 }
                 if (key == Qt::Key_Up)
-                    --idx;
-                else
                     ++idx;
-                if (idx >= m_history.size()) {
-                    m_currentHistoryIndex = -1;
+                else
+                    --idx;
+                if (idx < 0) {
+                    m_currentHistoryIndex = 1001;
                     m_input->setText(m_inputBuffer);
-                } else if (idx > -1) {
+                } else if (idx < m_history.size()) {
                     m_currentHistoryIndex = idx;
                     m_input->setText(m_history.at(idx));
                 }
@@ -1996,10 +1997,10 @@ bool Qiq::runInput() {
             if (type < ForceOut) // ForceOut, Math and List means the user waits for a response
                 m_autoHide.start(type == NoOut ? 250 : 3000);
             m_history.removeAll(m_input->text());
-            m_history.append(m_input->text());
+            m_history.prepend(m_input->text());
             if (m_history.size() > 1000)
-                m_history.removeFirst();
-            m_currentHistoryIndex = -1;
+                m_history.removeLast();
+            m_currentHistoryIndex = 1001;
             if (m_historySaver) {
                 if (m_historySaver->remainingTime() < 4*m_historySaver->interval()/5) { // when the timer has 80% left, we just let it run out
                     static int bumpCounter = 0;
