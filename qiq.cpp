@@ -877,6 +877,12 @@ static bool isPrintable(const QString &s) {
     return false;
 }
 bool Qiq::eventFilter(QObject *o, QEvent *e) {
+    if (o == m_input && !m_input->isVisible() && e->type() == QEvent::ShortcutOverride) {
+        if (QKeySequence(static_cast<QKeyEvent*>(e)->keyCombination()) == QKeySequence::Paste) {
+            m_input->show();
+        }
+        return false;
+    }
     if (o == m_input && e->type() == QEvent::KeyPress) {
         m_autoHide.stop(); // user interaction
         const int key = static_cast<QKeyEvent*>(e)->key();
