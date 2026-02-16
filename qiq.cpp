@@ -1235,14 +1235,19 @@ void Qiq::filter(const QString needle, MatchType matchType) {
     int firstVisRow = m_lastVisibleRow = -1;
 
     if (m_list->model() == m_applications) {
-        QStringList tokens = needle.split(whitespace);
+        QStringList tokens = needle.split(whitespace, Qt::SkipEmptyParts);
         for (int i = 0; i < rows; ++i) {
             const QModelIndex idx = m_list->model()->index(i, 0, m_list->rootIndex());
             bool vis = false;
+            int score = 0;
             for (const QString &token : tokens) {
-                if ((vis = idx.data().toString().contains(token, Qt::CaseInsensitive))) continue;
-                if ((vis = idx.data(AppExec).toString().contains(token, Qt::CaseInsensitive))) continue;
-                if ((vis = idx.data(AppComment).toString().contains(token, Qt::CaseInsensitive))) continue;
+                const QString hay = idx.data().toString();
+                if (!hay.isEmpty()) {
+                    if ((vis = hay.startsWith(token, Qt::CaseInsensitive))) {  score += 100 + 100*token.length()/hay.length(); continue; }
+                    if ((vis = hay.contains(token, Qt::CaseInsensitive))) {  score += 50 + 50*token.length()/hay.length(); continue; }
+                }
+                if ((vis = idx.data(AppExec).toString().contains(token, Qt::CaseInsensitive))) { score += 25; continue; }
+                if ((vis = idx.data(AppComment).toString().contains(token, Qt::CaseInsensitive))) { score += 10; continue; }
                 const QStringList cats = idx.data(AppCategories).toStringList();
                 for (const QString &cat : cats) {
                     if ((vis = cat.contains(token, Qt::CaseInsensitive))) break;
@@ -1253,12 +1258,21 @@ void Qiq::filter(const QString needle, MatchType matchType) {
                 }
                 if (!vis) break;
             }
-            if (vis) {
-                m_lastVisibleRow = i;
-                if (firstVisRow < 0)
-                    firstVisRow = i;
-            }
+            m_applications->setData(idx, score, MatchScore);
             m_list->setRowHidden(i, !(vis && ++visible));
+        }
+        if (!needle.isEmpty()) {
+            m_applications->setSortRole(MatchScore);
+            m_applications->sort(0, Qt::DescendingOrder);
+        }
+        for (int i = 0; i < rows; ++i) {
+            if (!m_list->isRowHidden(i)) {
+                m_lastVisibleRow = i;
+                if (firstVisRow < 0) {
+                    firstVisRow = i;
+                    m_list->setCurrentIndex(m_list->model()->index(firstVisRow, 0, m_list->rootIndex()));
+                }
+            }
         }
     } else if (m_list->model() == m_notifications->model()) {
         QStringList tokens = needle.split(whitespace);
