@@ -1184,7 +1184,7 @@ void Qiq::explicitlyComplete() {
     static const QRegularExpression leadingWS("^\\s*");
     lastCmd.remove(leadingWS);
     stripInstruction(lastCmd);
-    if (m_bins->stringList().contains(lastCmd.section(whitespace, 0, 0).trimmed())) { // first token is a known binary
+    if (lastCmd.contains(whitespace) && m_bins->stringList().contains(lastCmd.section(whitespace, 0, 0).trimmed())) { // first token is a known binary
         if (!m_cmdCompletion.isEmpty()) {
             QProcess complete;
             complete.start(m_cmdCompletion, QStringList() << lastCmd);
