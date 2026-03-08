@@ -1580,8 +1580,10 @@ void Qiq::printOutput(int exitCode) {
             }
         }
     }
-
-    if (!output.isEmpty()) {
+    if (output.isEmpty()) {
+        if (process->property("qiq_type").toString() == "stdout")
+            message("<h1 align=center>¯\\_(ツ)_/¯</h1><p align=center>" + tr("When you gaze long into the abyss, the abyss also gazes into you…") + "</p>");
+    } else {
         m_autoHide.stop(); // user may wanna read this ;)
         if (showAsList) {
             m_externCmd = "_qiq";
@@ -1967,8 +1969,10 @@ bool Qiq::runInput() {
         if (type == NoOut) {
             ret = QProcess::startDetached(exec, args);
         } else {
-            if (type == ForceOut)
+            if (type == ForceOut) {
+                process->setProperty("qiq_type", "stdout");
                 message("<h3 align=center>" + tr("Waiting for output…") + "</h3>");
+            }
             const bool isSudo((exec == "sudo" || exec == "sudoedit") && !args.contains("-k")); // "sudo -k" fails w/ -n and never needs credentials
             if (isSudo) {
                 args.prepend("-n");
