@@ -49,7 +49,7 @@
 #include "notifications.h"
 #include "qiq.h"
 
-static QRegularExpression whitespace("[;&|[:space:]]+"); //[^\\\\]*
+static QRegularExpression whitespace("[;|[:space:]]+"); //[^\\\\]* &
 #define HIST_SIZE 1000
 
 
@@ -1177,7 +1177,7 @@ void Qiq::explicitlyComplete() {
         return;
     }
     auto stripInstruction = [=](QString &token) {
-        if (token.startsWith('=') || token.startsWith('?') || token.startsWith('!') || token.startsWith('#'))
+        if (token.startsWith('=') || token.startsWith('?') || token.startsWith('!') || token.startsWith('#') || token.startsWith('&'))
             token.remove(0,1);
     };
     QString lastCmd = m_input->text().left(m_input->cursorPosition()).section(" | ", -1, -1);
@@ -1580,28 +1580,35 @@ void Qiq::printOutput(int exitCode) {
             }
         }
     }
+    const QString type = process->property("qiq_type").toString();
     if (output.isEmpty()) {
-        if (process->property("qiq_type").toString() == "stdout")
-            message("<h1 align=center>¯\\_(ツ)_/¯</h1><p align=center>" + tr("When you gaze long into the abyss, the abyss also gazes into you…") + "</p>");
+        if (type == "stdout" || type == "notify")
+            output = "<h1 align=center>¯\\_(ツ)_/¯</h1><p align=center>" + tr("When you gaze long into the abyss, the abyss also gazes into you…") + "</p>";
+    }
+    if (output.isEmpty())
+        return; // really nothing to do
+    if (type == "notify") {
+        notifyUser(process->program() + " " + process->arguments().join(" "), output);
+        return;
+    }
+
+    m_autoHide.stop(); // user may wanna read this ;)
+    if (showAsList) {
+        m_externCmd = "_qiq";
+        if (!m_external)
+            m_external = new QStandardItemModel(this);
+        m_external->clear();
+        const QStringList lines = output.split('\n');
+        for (const QString &l : lines)
+            m_external->appendRow(new QStandardItem(l));
+        setModel(m_external);
+        filter(QString(), Partial);
+        if (currentWidget() != m_list)
+            setCurrentWidget(m_list);
+        else
+            adjustGeometry();
     } else {
-        m_autoHide.stop(); // user may wanna read this ;)
-        if (showAsList) {
-            m_externCmd = "_qiq";
-            if (!m_external)
-                m_external = new QStandardItemModel(this);
-            m_external->clear();
-            const QStringList lines = output.split('\n');
-            for (const QString &l : lines)
-                m_external->appendRow(new QStandardItem(l));
-            setModel(m_external);
-            filter(QString(), Partial);
-            if (currentWidget() != m_list)
-                setCurrentWidget(m_list);
-            else
-                adjustGeometry();
-        } else {
-            message(output);
-        }
+        message(output);
     }
 }
 
@@ -1827,7 +1834,7 @@ bool Qiq::runInput() {
     }
     // custom command ===========================================================================================================
     QProcess *process = new QProcess(this);
-    enum Type { Normal = 0, NoOut, ForceOut, Math, List };
+    enum Type { Normal = 0, NoOut, Notify, ForceOut, Math, List };
     Type type = Normal;
     if (command.startsWith("=")) {
         type = Math;
@@ -1838,10 +1845,12 @@ bool Qiq::runInput() {
     } else if (command.startsWith("!")) {
         type = NoOut;
         command.remove(0,1);
+    } else if (command.startsWith("&")) {
+        type = Notify;
+        command.remove(0,1);
     } else if (command.startsWith("#")) {
         type = List;
         command.remove(0,1);
-        process->setProperty("qiq_type", "list");
     }
     command = command.trimmed();
     if (command == "%clip%") {
@@ -1941,11 +1950,11 @@ bool Qiq::runInput() {
         } else if (command.startsWith("!")) {
             if (type == Normal) type = NoOut;
             command.remove(0,1);
+        } else if (command.startsWith("&")) {
+            if (type == Normal) type = Notify;
+            command.remove(0,1);
         } else if (command.startsWith("#")) {
-            if (type == Normal) {
-                type = List;
-                process->setProperty("qiq_type", "list");
-            }
+            if (type == Normal) type = List;
             command.remove(0,1);
         }
 
@@ -1961,6 +1970,11 @@ bool Qiq::runInput() {
                     command.replace(token, env);
             }
         }
+
+        if (type == List)
+            process->setProperty("qiq_type", "list");
+        else if (type == Notify)
+            process->setProperty("qiq_type", "notify");
 
         QString exec = command;
         QStringList args = QProcess::splitCommand(exec);
@@ -2020,7 +2034,7 @@ bool Qiq::runInput() {
         }
         if (ret) {
             if (type < ForceOut) // ForceOut, Math and List means the user waits for a response
-                m_autoHide.start(type == NoOut ? 250 : 3000);
+                m_autoHide.start(type == Normal ? 3000 : 250);
             m_history.removeAll(m_input->text());
             m_history.prepend(m_input->text());
             if (m_history.size() > HIST_SIZE)
