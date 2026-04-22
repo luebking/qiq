@@ -145,10 +145,17 @@ void Notification::countdown() {
             value += "¼";
         value = tr("%1 minutes").arg(value);
         interval = 15000;
+    } else if (remain < 0) {
+        static int pulse = 0;
+        static const QString bits = "⠁⠂⠄⡀⡈⡐⡠⣀⣁⣂⣄⣌⣔⣤⣥⣦⣮⣶⣷⣿⡿⠿⢟⠟⡛⠛⠫⢋⠋⠍⡉⠉⠑⠡⢁"; // "⣾⣽⣻⢿⡿⣟⣯⣷";
+        value = bits.at(pulse) % bits.at(bits.length() - 1 - pulse) % bits.at(pulse);
+        pulse = (pulse+1)%bits.length();
     } else {
         value = tr("%1 seconds").arg(qRound(remain/1000.0f));
     }
     int spare = remain/interval; spare = remain - interval*spare;
+    if (remain < 0)
+        spare = 125;
     m_countdown->start(spare > 10 ? spare : interval + spare);
     s.replace("%counter%", value);
     m_summary->setText(s);
