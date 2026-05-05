@@ -84,7 +84,7 @@ private:
     bool m_wasVisble;
     QHash<QString,QString> m_aliases;
     QString m_aha, m_qalc, m_term, m_cmdCompletion, m_cmdCompletionSep;
-    QStringList m_history;
+    QStringList m_history, m_histIgnore;
     int m_currentHistoryIndex;
     QString m_inputBuffer;
     QTimer m_autoHide;

@@ -491,6 +491,7 @@ void Qiq::reconfigure() {
         m_historySaver->setInterval(300000); // 5 minutes
         connect(m_historySaver, &QTimer::timeout, this, &Qiq::writeHistory);
     }
+    m_histIgnore = settings.value("HistoryIgnore").toStringList();
     m_todoPath = settings.value("TodoPath",
                 QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + QDir::separator() + "todo.txt").toString();
     if (!m_todoPath.isEmpty() && !m_todoSaver) {
@@ -2036,6 +2037,8 @@ bool Qiq::runInput() {
             if (type < ForceOut) // ForceOut, Math and List means the user waits for a response
                 m_autoHide.start(type == Normal ? 3000 : 250);
             m_history.removeAll(m_input->text());
+            if (m_input->text().startsWith(" ") || m_histIgnore.contains(exec))
+                return true; // skip history saving
             m_history.prepend(m_input->text());
             if (m_history.size() > HIST_SIZE)
                 m_history.removeLast();
