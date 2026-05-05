@@ -2019,6 +2019,9 @@ bool Qiq::runInput() {
                             process->write(password.toLocal8Bit());
                             process->closeWriteChannel();
                         }
+                        QChar *chars = const_cast<QChar*>(password.constData());
+                        for (int i = 0; i < password.length(); ++i)
+                            chars[i] = '0';
                     }
                 }
                 if (!ret) {
