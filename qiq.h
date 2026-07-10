@@ -86,7 +86,7 @@ private:
     QString m_aha, m_qalc, m_term, m_cmdCompletion, m_cmdCompletionSep;
     QStringList m_history, m_histIgnore;
     int m_currentHistoryIndex;
-    QString m_inputBuffer;
+    QString m_inputBuffer, m_lastCommand;
     QTimer m_autoHide;
     QTimer *m_historySaver;
     QString m_historyPath;

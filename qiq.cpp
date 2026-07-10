@@ -939,6 +939,11 @@ bool Qiq::eventFilter(QObject *o, QEvent *e) {
                 int idx = m_currentHistoryIndex;
                 if (idx >= m_history.size()) {
                     m_inputBuffer = m_input->text();
+                    if (key == Qt::Key_Up && !m_lastCommand.isEmpty()) {
+                        m_currentHistoryIndex = (m_history.size() > 0 && m_history.at(0) == m_lastCommand) ? 0 : -1;
+                        m_input->setText(m_lastCommand);
+                        return true;
+                    }
                     idx = -1;
                 }
                 if (key == Qt::Key_Up)
@@ -1531,6 +1536,7 @@ void Qiq::printOutput(int exitCode) {
     }
     QString output;
     if (exitCode) {
+        m_history.removeAll(process->property("qiq_cmdline").toString());
         output = "<h3 align=center style=\"color:#d01717;\">" + process->program() + " " + process->arguments().join(" ") + "</h3><pre style=\"color:#d01717;\">";
         QByteArray error = process->readAllStandardError();
         if (!error.isEmpty()) {
@@ -1834,6 +1840,7 @@ bool Qiq::runInput() {
         return true;
     }
     // custom command ===========================================================================================================
+    m_lastCommand = m_input->text();
     QProcess *process = new QProcess(this);
     enum Type { Normal = 0, NoOut, Notify, ForceOut, Math, List };
     Type type = Normal;
@@ -1910,8 +1917,10 @@ bool Qiq::runInput() {
 
     QTimer *detachIO = nullptr;
     QMetaObject::Connection processDoneHandler;
-    if (type != NoOut)
+    if (type != NoOut) {
         processDoneHandler = connect(process, &QProcess::finished, this, &Qiq::printOutput);
+        process->setProperty("qiq_cmdline", m_input->text());
+    }
     if (type == Normal) { // NoOut is always detached and we want the output of everyhing else, no matter how long it takes and it doesn't need to survive us
         process->setChildProcessModifier([] {::setsid(); });
         detachIO = new QTimer(this);
