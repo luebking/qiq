@@ -1421,6 +1421,8 @@ bool Qiq::insertToken(bool selectDiff) {
     }
     QString newToken = m_list->currentIndex().data().toString();
     if (m_list->model() == m_files) {
+        if (newToken.isEmpty())
+            return false;
         // preserve present token to not screw the users input
         int left, right;
         tokenUnderCursor(left, right);
