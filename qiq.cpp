@@ -1239,8 +1239,10 @@ void Qiq::filter(const QString needle, MatchType matchType) {
     int visible = 0;
     static int prevVisible = 0;
     int firstVisRow = m_lastVisibleRow = -1;
+    bool matchPartial = matchType == Partial;
 
     if (m_list->model() == m_applications) {
+        matchPartial = false;
         QStringList tokens = needle.split(whitespace, Qt::SkipEmptyParts);
         for (int i = 0; i < rows; ++i) {
             const QModelIndex idx = m_list->model()->index(i, 0, m_list->rootIndex());
@@ -1281,6 +1283,7 @@ void Qiq::filter(const QString needle, MatchType matchType) {
             }
         }
     } else if (m_list->model() == m_notifications->model()) {
+        matchPartial = false;
         QStringList tokens = needle.split(whitespace);
         for (int i = 0; i < rows; ++i) {
             const QModelIndex idx = m_list->model()->index(i, 0, m_list->rootIndex());
@@ -1299,6 +1302,7 @@ void Qiq::filter(const QString needle, MatchType matchType) {
             m_list->setRowHidden(i, !(vis && ++visible));
         }
     } else if (matchType == Begin) {
+        matchPartial = false;
         const bool filterDot = (m_list->model() == m_files) && !needle.startsWith('.');
         for (int i = 0; i < rows; ++i) {
             const QString hay = m_list->model()->index(i, 0, m_list->rootIndex()).data().toString();
@@ -1311,7 +1315,10 @@ void Qiq::filter(const QString needle, MatchType matchType) {
             m_list->setRowHidden(i, !(vis && ++visible));
         }
         shrink = previousNeedle.startsWith(needle, Qt::CaseInsensitive);
-    } else { // if (matchType == Partial)
+        if (!visible && rows > 0 && m_list->model() == m_files)
+            matchPartial = true;
+    }
+    if (matchPartial) { // if (matchType == Partial)
         QStringList sl = needle.split(whitespace, Qt::SkipEmptyParts);
         QStandardItemModel *takeScores = nullptr;
         if (!needle.isEmpty())
