@@ -1610,7 +1610,9 @@ void Qiq::printOutput(int exitCode) {
 
     m_autoHide.stop(); // user may wanna read this ;)
     if (showAsList) {
-        m_externCmd = "_qiq";
+        m_externCmd = process->property("qiq_listHandler").toString();
+        if (m_externCmd.isEmpty())
+            m_externCmd = "_qiq";
         if (!m_external)
             m_external = new QStandardItemModel(this);
         m_external->clear();
@@ -1868,6 +1870,11 @@ bool Qiq::runInput() {
     } else if (command.startsWith("#")) {
         type = List;
         command.remove(0,1);
+        int sp = command.indexOf("#");
+        if (sp > 0) { // sic! ##foo would be an empty command to list to externalCmd
+            process->setProperty("qiq_listHandler", command.mid(sp+1).trimmed());
+            command = command.left(sp);
+        }
     }
     command = command.trimmed();
     if (command == "%clip%") {
