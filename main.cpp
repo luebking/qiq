@@ -86,6 +86,7 @@ countdown  |the summary token "%%counter%%" will be replaced by the remaining ti
          id=<notification id to replace>
       image=<path to an image to show>
 resident   |the notification isn't closed by using any action
+    timeout=<durarition the notification shows, accepts same syntax as qiq countdown>
 transient  |the notification isn't logged
     urgency=<low|normal|critical>
 wait       |wait until the notification closes and print the reason
