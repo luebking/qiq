@@ -34,7 +34,16 @@
 #include <QToolButton>
 #include <QUrl>
 #include <QWindow>
+
+#include <LayerShellQt/Shell>
+#include <LayerShellQt/Window>
+
 #include "notifications.h"
+
+static bool isWayland() {
+    static bool yesno = qApp->platformName() == "wayland";
+    return yesno;
+}
 
 Notification::Notification(QWidget *parent, uint id) : QFrame(parent), m_id(id), m_resident(false), m_countdown(nullptr) {
     QVBoxLayout *vl = new QVBoxLayout(this);
@@ -188,7 +197,7 @@ Notifications::Notifications(bool argb) : QFrame() {
     QDBusConnection::sessionBus().registerObject("/org/freedesktop/Notifications", this);
     new NotiDaptor(this);
 //    qEnvironmentVariable(const char *varName, const QString &defaultValue)
-    setWindowFlags(Qt::BypassWindowManagerHint);
+    setWindowFlags(isWayland() ? Qt::FramelessWindowHint : Qt::BypassWindowManagerHint);
     setAttribute(Qt::WA_X11NetWmWindowTypeNotification, true);
     m_id = 0;
     m_preview = nullptr;
@@ -455,6 +464,8 @@ uint Notifications::add(QString app_name, uint replaces_id, QString app_icon, QS
 
 void Notifications::adjustGeometry() {
     adjustSize();
+    if (isWayland())
+        return;
     if (const QScreen *screen = windowHandle()->screen()) {
         QRect r = rect();
         if (m_offset.x() > 0)
@@ -522,5 +533,21 @@ void Notifications::recall(uint id) {
         show();
         raise();
         adjustGeometry();
+    }
+}
+
+void Notifications::setOffset(QPoint offset) {
+    m_offset = offset;
+    if (isWayland()) {
+        WId id = winId(); Q_UNUSED(id); // we need to call winId to create a platform window
+        if (LayerShellQt::Window *waydow = LayerShellQt::Window::get(windowHandle())) {
+            waydow->setLayer(LayerShellQt::Window::LayerOverlay);
+            waydow->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
+            LayerShellQt::Window::Anchors anc = LayerShellQt::Window::AnchorNone;
+            anc |= m_offset.x() < 0 ? LayerShellQt::Window::AnchorRight : LayerShellQt::Window::AnchorLeft;
+            anc |= m_offset.y() < 0 ? LayerShellQt::Window::AnchorBottom : LayerShellQt::Window::AnchorTop;
+            waydow->setAnchors(anc);
+            waydow->setMargins(QMargins(qAbs(m_offset.x()), qAbs(m_offset.y()), qAbs(m_offset.x()), qAbs(m_offset.y())));
+        }
     }
 }

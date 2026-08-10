@@ -1,6 +1,7 @@
 HEADERS = qiq.h gauge.h notifications.h
 SOURCES = main.cpp qiq.cpp gauge.cpp notifications.cpp
 QT      += dbus gui widgets
+unix:!macx:LIBS    += -lLayerShellQtInterface
 #lessThan(QT_MAJOR_VERSION, 6){
 #  unix:!macx:QT += x11extras
 #}

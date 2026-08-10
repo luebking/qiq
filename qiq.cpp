@@ -41,6 +41,9 @@
 #include <QtEnvironmentVariables>
 #include <QtDBus/QDBusConnection>
 
+#include <LayerShellQt/Shell>
+#include <LayerShellQt/Window>
+
 #include <unistd.h>
 
 #include <QtDebug>
@@ -52,8 +55,22 @@
 static QRegularExpression whitespace("[;|[:space:]]+"); //[^\\\\]* &
 #define HIST_SIZE 1000
 
+static bool isWayland() {
+    static bool yesno = qApp->platformName() == "wayland";
+    return yesno;
+}
 
 Qiq::Qiq(bool argb) : QStackedWidget() {
+    if (isWayland()) {
+        LayerShellQt::Shell::useLayerShell();
+        WId id = winId(); Q_UNUSED(id); // we need to call winId to create a platform window
+        if (LayerShellQt::Window *waydow = LayerShellQt::Window::get(windowHandle())) {
+            qDebug() << "foo";
+            waydow->setLayer(LayerShellQt::Window::LayerOverlay);
+            waydow->setAnchors(LayerShellQt::Window::AnchorNone);
+            waydow->setAnchors(LayerShellQt::Window::AnchorNone);
+        }
+    }
     if (argb)
         setAttribute(Qt::WA_TranslucentBackground);
     QDBusConnection::sessionBus().registerService("org.qiq.qiq");
@@ -501,7 +518,7 @@ void Qiq::reconfigure() {
         connect(m_todoSaver, &QTimer::timeout, this, &Qiq::writeTodoList);
     }
     m_notifications->setOffset(settings.value("NotificationOffset", QPoint(-32,32)).toPoint());
-    QStringList wmHacks = settings.value("WMHacks", "Bypass").toStringList();
+    QStringList wmHacks = settings.value("WMHacks", isWayland() ? "" : "Bypass").toStringList();
     Qt::WindowFlags flags = Qt::Window;
     if (wmHacks.contains("bypass", Qt::CaseInsensitive))
         flags |= Qt::BypassWindowManagerHint;

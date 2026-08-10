@@ -73,7 +73,7 @@ public:
     QPixmap pixmap(const QString &file) const;
     void preview(const QString &file);
     void purge(uint id);
-    void setOffset(QPoint offset) { m_offset = offset; }
+    void setOffset(QPoint offset);
     void recall(uint id);
 signals:
     void acted(uint id, QString action_key);
