@@ -65,7 +65,6 @@ Qiq::Qiq(bool argb) : QStackedWidget() {
         LayerShellQt::Shell::useLayerShell();
         WId id = winId(); Q_UNUSED(id); // we need to call winId to create a platform window
         if (LayerShellQt::Window *waydow = LayerShellQt::Window::get(windowHandle())) {
-            qDebug() << "foo";
             waydow->setLayer(LayerShellQt::Window::LayerOverlay);
             waydow->setAnchors(LayerShellQt::Window::AnchorNone);
             waydow->setAnchors(LayerShellQt::Window::AnchorNone);
