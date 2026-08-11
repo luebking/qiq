@@ -1417,6 +1417,10 @@ void Qiq::filterInput() {
     tokenUnderCursor(left, right);
     text = text.mid(left, right - left);
     if (m_list->model() == m_files) {
+        if (text.trimmed().isEmpty()) {
+            setModel(m_applications);
+            return filter(m_input->text(), Partial);
+        }
         if (text.startsWith('~'))
             text.replace(0,1,QDir::homePath());
         QFileInfo fileInfo(text);
