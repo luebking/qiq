@@ -263,21 +263,29 @@ Qiq::Qiq(bool argb) : QStackedWidget() {
                 setCurrentWidget(m_status);
             return;
         }
+        static int previousPos = 0;
         if (text.size() > 4 && text.startsWith("qiq ")) {
-            static const QString qiq_reconfigure("qiq reconfigure");
-            static const QString qiq_countdown("qiq countdown [<msg>] <t>");
-            m_input->blockSignals(true);
-            if (qiq_reconfigure.startsWith(text)) {
-                int pos = m_input->cursorPosition();
-                m_input->setText(qiq_reconfigure);
-                m_input->setSelection(pos, qiq_reconfigure.size()-pos);
-                text = qiq_reconfigure;
-            } else if (qiq_countdown.startsWith(text)) {
-                m_input->setText(qiq_countdown);
-                m_input->setSelection(14, qiq_countdown.size()-14);
-                text = qiq_countdown;
+            if (m_input->cursorPosition() > previousPos) { // otherwise the user cannot backspace out of the completion
+                static const QString qiq_reconfigure("qiq reconfigure");
+                static const QString qiq_countdown("qiq countdown [<msg>] <t>");
+                m_input->blockSignals(true);
+                if (qiq_reconfigure.startsWith(text)) {
+                    int pos = m_input->cursorPosition();
+                    m_input->setText(qiq_reconfigure);
+                    m_input->setSelection(pos, qiq_reconfigure.size()-pos);
+                    text = qiq_reconfigure;
+                } else if (qiq_countdown.startsWith(text)) {
+                    m_input->setText(qiq_countdown);
+                    m_input->setSelection(14, qiq_countdown.size()-14);
+                    text = qiq_countdown;
+                }
+                m_input->blockSignals(false);
+                previousPos = m_input->selectionStart();
+            } else {
+                previousPos = m_input->cursorPosition();
             }
-            m_input->blockSignals(false);
+        } else {
+            previousPos = 0;
         }
         if (text == "cd ") {
             m_input->blockSignals(true);
