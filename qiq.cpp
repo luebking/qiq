@@ -1716,6 +1716,10 @@ bool Qiq::runInput() {
         return false;
     }
 
+    // this bleeds into child processes and would turn them all fullscreen overlay
+    // I said it, I stand by it and I'll say it again: FUCK! WAYLAND!
+    qunsetenv("QT_WAYLAND_SHELL_INTEGRATION");
+
     m_notifications->preview(QString()); // hide
     QAbstractItemModel *currentModel = nullptr;
     if (currentWidget() == m_list)
