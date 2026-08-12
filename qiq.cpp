@@ -63,12 +63,6 @@ static bool isWayland() {
 Qiq::Qiq(bool argb) : QStackedWidget() {
     if (isWayland()) {
         LayerShellQt::Shell::useLayerShell();
-        WId id = winId(); Q_UNUSED(id); // we need to call winId to create a platform window
-        if (LayerShellQt::Window *waydow = LayerShellQt::Window::get(windowHandle())) {
-            waydow->setLayer(LayerShellQt::Window::LayerOverlay);
-            waydow->setAnchors(LayerShellQt::Window::AnchorNone);
-            waydow->setAnchors(LayerShellQt::Window::AnchorNone);
-        }
     }
     if (argb)
         setAttribute(Qt::WA_TranslucentBackground);
@@ -491,8 +485,30 @@ void Qiq::updateBinaries() {
         m_bins->setStringList(binaries);
 }
 
+void Qiq::setOffset(QPoint offset) {
+    m_offset = offset;
+    if (isWayland()) {
+        WId id = winId(); Q_UNUSED(id); // we need to call winId to create a platform window
+        if (LayerShellQt::Window *waydow = LayerShellQt::Window::get(windowHandle())) {
+            waydow->setLayer(LayerShellQt::Window::LayerOverlay);
+            LayerShellQt::Window::Anchors anc = LayerShellQt::Window::AnchorNone;
+            if (m_offset.x() < 0)
+                anc |= LayerShellQt::Window::AnchorRight;
+            else if (m_offset.x() > 0)
+                anc |= LayerShellQt::Window::AnchorLeft;
+            if (m_offset.y() < 0)
+                anc |= LayerShellQt::Window::AnchorBottom;
+            else if (m_offset.y() > 0)
+                anc |= LayerShellQt::Window::AnchorTop;
+            waydow->setAnchors(anc);
+            waydow->setMargins(QMargins(qAbs(m_offset.x()), qAbs(m_offset.y()), qAbs(m_offset.x()), qAbs(m_offset.y())));
+        }
+    }
+}
+
 void Qiq::reconfigure() {
     QSettings settings("qiq");
+    setOffset(settings.value("QiqOffset", QPoint(0,0)).toPoint());
     const QString sheetPath = QStandardPaths::locate(QStandardPaths::AppDataLocation, settings.value("Style", "default.css").toString());
     QFile sheet(sheetPath);
     if (sheet.exists() && sheet.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -794,12 +810,19 @@ void Qiq::adjustGeometry(bool now) {
     QRect r = m_input->rect();
     r.moveCenter(rect().center());
     m_input->setGeometry(r);
-    if (const QScreen *screen = windowHandle()->screen()) {
-        QRect r = rect();
-        r.moveCenter(screen->geometry().center());
+    QScreen *screen = isWayland() ? nullptr : windowHandle()->screen();
+    if (screen) {
+        QRect r = rect(), sg = screen->geometry();
+        r.moveCenter(sg.center());
+        if (m_offset.x() < 0)
+            r.moveRight(sg.right() + m_offset.x());
+        else if (m_offset.x() > 0)
+            r.moveLeft(sg.left() + m_offset.x());
+        if (m_offset.y() < 0)
+            r.moveBottom(sg.bottom() + m_offset.y());
+        else if (m_offset.y() > 0)
+            r.moveTop(sg.top() + m_offset.y());
         setGeometry(r);
-    } else {
-        qDebug() << "fuck wayland";
     }
     activateWindow(); // we might lose the mouse and the WM might withdraw the focus
 }

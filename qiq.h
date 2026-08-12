@@ -67,6 +67,7 @@ private:
     void printOutput(int exitCode);
     bool runInput();
     void setModel(QAbstractItemModel *model);
+    void setOffset(QPoint offset);
     void setPwd(QString path);
     void tokenUnderCursor(int &left, int &right);
     void updateBinaries();
@@ -103,6 +104,7 @@ private:
     QFileSystemWatcher *m_inotify;
     QStringList m_previewCmds;
     QLabel *m_pwd;
+    QPoint m_offset;
 };
 
 class DBusAdaptor : public QDBusAbstractAdaptor
