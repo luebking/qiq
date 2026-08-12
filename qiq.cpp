@@ -61,9 +61,6 @@ static bool isWayland() {
 }
 
 Qiq::Qiq(bool argb) : QStackedWidget() {
-    if (isWayland()) {
-        LayerShellQt::Shell::useLayerShell();
-    }
     if (argb)
         setAttribute(Qt::WA_TranslucentBackground);
     QDBusConnection::sessionBus().registerService("org.qiq.qiq");
@@ -1715,10 +1712,6 @@ bool Qiq::runInput() {
         m_askingQuestion = false;
         return false;
     }
-
-    // this bleeds into child processes and would turn them all fullscreen overlay
-    // I said it, I stand by it and I'll say it again: FUCK! WAYLAND!
-    qunsetenv("QT_WAYLAND_SHELL_INTEGRATION");
 
     m_notifications->preview(QString()); // hide
     QAbstractItemModel *currentModel = nullptr;
