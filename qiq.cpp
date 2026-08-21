@@ -2113,8 +2113,10 @@ bool Qiq::runInput() {
             if (type < ForceOut) // ForceOut, Math and List means the user waits for a response
                 m_autoHide.start(type == Normal ? 3000 : 250);
             m_history.removeAll(m_input->text());
-            if (m_input->text().startsWith(" ") || m_histIgnore.contains(exec))
+            if (m_input->text().startsWith(" ") || m_histIgnore.contains(exec)) {
+                m_currentHistoryIndex = HIST_SIZE + 1;
                 return true; // skip history saving
+            }
             m_history.prepend(m_input->text());
             if (m_history.size() > HIST_SIZE)
                 m_history.removeLast();
