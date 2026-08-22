@@ -284,8 +284,6 @@ void Notifications::mapHints2Note(const QVariantMap &hints, Notification *note) 
         note->setImage(pixmap(it->value<QDBusArgument>()));
     else if (HAS_HINT("image_data"))
         note->setImage(pixmap(it->value<QDBusArgument>()));
-    else if (HAS_HINT("image_data"))
-        note->setImage(pixmap(it->value<QDBusArgument>()));
     else if (HAS_HINT("image-path"))
         note->setImage(pixmap(it->toString()));
     else if (HAS_HINT("image_path"))
