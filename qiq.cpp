@@ -821,6 +821,11 @@ void Qiq::adjustGeometry(bool now) {
             r.moveTop(sg.top() + m_offset.y());
         setGeometry(r);
     }
+    if (isWayland() && windowHandle()->isExposed()) {
+        hide();
+        show();
+        // this is ridiculous…
+    }
     activateWindow(); // we might lose the mouse and the WM might withdraw the focus
 }
 
