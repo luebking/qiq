@@ -251,7 +251,7 @@ QPixmap Notifications::pixmap(const QDBusArgument &iiibiiay) const
     iiibiiay.endStructure();
 
     bool rgb = !hasAlpha && channels == 3 && bitsPerSample == 8;
-    QImage img = QImage((uchar*)data.constData(), width, height, rgb ? QImage::Format_RGB888 : QImage::Format_ARGB32);
+    QImage img = QImage((uchar*)data.constData(), width, height, rowstride, rgb ? QImage::Format_RGB888 : QImage::Format_ARGB32);
     if (!rgb)
         img = img.rgbSwapped();
 
