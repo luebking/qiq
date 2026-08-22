@@ -2,6 +2,8 @@
 
 # ~/.local/share/wmhacks
 
+[ -z $DISPLAY ] && exit
+
 # scriptable external actions to "fix" windowmanagers
 # this uses xdotool because there's actually a common approach to this on X11
 # if you're looking for solutions for your wayland compositor/window manager you'll
