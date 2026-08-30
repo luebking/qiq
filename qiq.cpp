@@ -1180,15 +1180,18 @@ void Qiq::explicitlyComplete() {
             return;
     }
 
-    auto completeAnnotated = [=](const QStringList &list) {
+    auto completeAnnotated = [=](const QStringList &list, bool filter = true) {
         if (!m_cmdCompleted)
             m_cmdCompleted = new QStringListModel(this);
         m_cmdCompleted->setStringList(list);
         setModel(m_cmdCompleted);
         setCurrentWidget(m_list);
-        filterInput();
-        insertToken(true);
+        if (filter)
+            filterInput();
+        if (!insertToken(true))
+            return false;
         cycleResults = true;
+        return true;
     };
 
     if (!lastToken.isEmpty() && lastToken.startsWith('$')) {
@@ -1242,17 +1245,28 @@ void Qiq::explicitlyComplete() {
     if (lastCmd.contains(whitespace) && m_bins->stringList().contains(lastCmd.section(whitespace, 0, 0).trimmed())) { // first token is a known binary
         if (!m_cmdCompletion.isEmpty()) {
             QProcess complete;
-            complete.start(m_cmdCompletion, QStringList() << lastCmd);
-            if (complete.waitForFinished(2000)) {
-                QStringList completions = QString::fromLocal8Bit(complete.readAllStandardOutput()).split('\n');
-                if (!completions.isEmpty() && completions.constLast().isEmpty())
-                    completions.removeLast();
-                if (!completions.isEmpty() && completions.constFirst().startsWith("__files"/*\r*/)) {
-                    completeDir(QDir::current(), true, fileInfo.fileName());
-                    return;
+            bool typo = false;
+            while (true) {
+                complete.start(m_cmdCompletion, QStringList() << lastCmd);
+                if (complete.waitForFinished(2000)) {
+                    QStringList completions = QString::fromLocal8Bit(complete.readAllStandardOutput()).split('\n');
+                    if (!completions.isEmpty() && completions.constLast().isEmpty())
+                        completions.removeLast();
+                    if (!completions.isEmpty() && completions.constFirst().startsWith("__files"/*\r*/)) {
+                        completeDir(QDir::current(), true, fileInfo.fileName());
+                        return;
+                    }
+                    completions.removeDuplicates();
+                    if (completeAnnotated(completions, !typo)) {
+                        break; // exit the loop
+                    } else { // try one token shorter in case the user typo'ed the last one
+                        typo = true;
+                        const QString old = lastCmd;
+                        lastCmd.truncate(lastCmd.lastIndexOf(whitespace) + 1);
+                        if (lastCmd == old)
+                            break; // that's it…
+                    }
                 }
-                completions.removeDuplicates();
-                completeAnnotated(completions);
             }
         }
     } else {
@@ -1524,6 +1538,8 @@ bool Qiq::insertToken(bool selectDiff) {
             newToken.remove('\r'); // zsh completions at times at least have that, probably to control the cursor
             newToken.remove('\t'); newToken.remove('\a'); // just for good measure
         }
+        if (newToken.isEmpty())
+            return false; // don't kill the users input
     }
     QString text = m_input->text();
 
