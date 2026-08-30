@@ -53,13 +53,14 @@ protected:
     void enterEvent(QEnterEvent *ee) override;
     bool eventFilter(QObject *o, QEvent *e) override;
 private:
-    enum MatchType { Begin = 0, Partial };
+    enum MatchType { Begin = 0, Partial, Fuzzy };
     enum AppStuff { AppExec = Qt::UserRole + 1, AppComment, AppPath, AppNeedsTE, AppCategories, AppKeywords, MatchScore };
     void adjustGeometry(bool now = false);
     void completeDir(const QDir &cdir, bool force, const QString filter = QString());
     void explicitlyComplete();
     void filter(const QString needle, MatchType matchType);
-    void filterInput();
+    void filterInput(bool fuzzy);
+    inline void filterInput() { filterInput(false); }
     bool insertToken(bool selectDiff);
     void makeApplicationModel();
     void message(const QString &string);

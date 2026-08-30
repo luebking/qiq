@@ -137,9 +137,9 @@ Qiq::Qiq(bool argb) : QStackedWidget() {
         m_pwd->raise();
         m_input->raise();
         if (currentWidget() == m_list)
-            connect(m_input, &QLineEdit::textEdited, this, &Qiq::filterInput, Qt::UniqueConnection);
+            connect(m_input, &QLineEdit::textEdited, this, qOverload<>(&Qiq::filterInput), Qt::UniqueConnection);
         else
-            disconnect(m_input, &QLineEdit::textEdited, this, &Qiq::filterInput);
+            disconnect(m_input, &QLineEdit::textEdited, this, qOverload<>(&Qiq::filterInput));
     });
 
     addWidget(m_todo = new QTextEdit);
@@ -1180,14 +1180,13 @@ void Qiq::explicitlyComplete() {
             return;
     }
 
-    auto completeAnnotated = [=](const QStringList &list, bool filter = true) {
+    auto completeAnnotated = [=](const QStringList &list, bool fuzzy = false) {
         if (!m_cmdCompleted)
             m_cmdCompleted = new QStringListModel(this);
         m_cmdCompleted->setStringList(list);
         setModel(m_cmdCompleted);
         setCurrentWidget(m_list);
-        if (filter)
-            filterInput();
+        filterInput(fuzzy);
         if (!insertToken(true))
             return false;
         cycleResults = true;
@@ -1257,7 +1256,7 @@ void Qiq::explicitlyComplete() {
                         return;
                     }
                     completions.removeDuplicates();
-                    if (completeAnnotated(completions, !typo)) {
+                    if (completeAnnotated(completions, typo)) {
                         break; // exit the loop
                     } else { // try one token shorter in case the user typo'ed the last one
                         typo = true;
@@ -1290,6 +1289,76 @@ void Qiq::tokenUnderCursor(int &left, int &right) {
     if (text.at(right-1) == '"') {
         left = qMax(0, text.lastIndexOf('"', right - 2));
     }
+}
+
+// stolen from QgsStringUtils
+static int levenshteinDistance( const QString &string1, const QString &string2, bool caseSensitive )
+{
+    int length1 = string1.length();
+    int length2 = string2.length();
+
+    //empty strings? solution is trivial...
+    if (string1.isEmpty())
+        return length2;
+    if (string2.isEmpty())
+        return length1;
+
+    //handle case sensitive flag (or not)
+    QString s1(caseSensitive ? string1 : string1.toLower());
+    QString s2(caseSensitive ? string2 : string2.toLower());
+
+    const QChar *s1Char = s1.constData();
+    const QChar *s2Char = s2.constData();
+
+    //strip out any common prefix
+    int commonPrefixLen = 0;
+    while (length1 > 0 && length2 > 0 && *s1Char == *s2Char) {
+        ++commonPrefixLen;
+        --length1;
+        --length2;
+        ++s1Char;
+        ++s2Char;
+    }
+
+    //strip out any common suffix
+    while (length1 > 0 && length2 > 0 && s1.at( commonPrefixLen + length1 - 1 ) ==
+                                         s2.at( commonPrefixLen + length2 - 1 )) {
+        --length1;
+        --length2;
+    }
+
+    //fully checked either string? if so, the answer is easy...
+    if (length1 == 0)
+        return length2;
+    if (length2 == 0)
+        return length1;
+
+    //ensure the inner loop is longer
+    if (length1 > length2) {
+        std::swap( s1, s2 );
+        std::swap( length1, length2 );
+    }
+
+    //levenshtein algorithm begins here
+    std::vector< int > col( length2 + 1, 0 );
+    std::vector< int > prevCol;
+    prevCol.reserve( length2 + 1 );
+    for (int i = 0; i < length2 + 1; ++i) {
+        prevCol.emplace_back( i );
+    }
+    const QChar *s2start = s2Char;
+    for (int i = 0; i < length1; ++i) {
+        col[0] = i + 1;
+        s2Char = s2start;
+        for (int j = 0; j < length2; ++j) {
+            col[j + 1] = std::min(std::min(1 + col[j], 1 + prevCol[1 + j]),
+                                  prevCol[j] + ((*s1Char == *s2Char) ? 0 : 1));
+            ++s2Char;
+        }
+        col.swap(prevCol);
+        ++s1Char;
+    }
+    return prevCol[length2];
 }
 
 void Qiq::filter(const QString needle, MatchType matchType) {
@@ -1380,6 +1449,21 @@ void Qiq::filter(const QString needle, MatchType matchType) {
         shrink = previousNeedle.startsWith(needle, Qt::CaseInsensitive);
         if (!visible && rows > 0 && m_list->model() == m_files)
             matchPartial = true;
+    } else if (matchType == Fuzzy) {
+        matchPartial = false;
+        const bool filterDot = (m_list->model() == m_files) && !needle.startsWith('.');
+        for (int i = 0; i < rows; ++i) {
+            const QString hay = m_list->model()->index(i, 0, m_list->rootIndex()).data().toString();
+            const bool vis = !(filterDot && hay.startsWith('.')) &&
+                            levenshteinDistance(needle, hay.left(needle.size()+2), false) <= needle.size()/2 + 2;
+            if (vis) {
+                m_lastVisibleRow = i;
+                if (firstVisRow < 0)
+                    firstVisRow = i;
+            }
+            m_list->setRowHidden(i, !(vis && ++visible));
+        }
+        shrink = previousNeedle.startsWith(needle, Qt::CaseInsensitive);
     }
     if (matchPartial) { // if (matchType == Partial)
         QStringList sl = needle.split(whitespace, Qt::SkipEmptyParts);
@@ -1447,7 +1531,7 @@ void Qiq::filter(const QString needle, MatchType matchType) {
     adjustGeometry();
 }
 
-void Qiq::filterInput() {
+void Qiq::filterInput(bool fuzzy) {
     if (m_list->model() == m_applications || m_list->model() == m_external || m_list->model() == m_cmdHistory)
         return filter(m_input->text(), Partial);
 
@@ -1480,7 +1564,7 @@ void Qiq::filterInput() {
     } else if (m_list->model() == m_bins && text.isEmpty()) {
         setCurrentWidget(m_status);
     }
-    filter(text, Begin);
+    filter(text, fuzzy ? Fuzzy : Begin);
 }
 
 bool Qiq::insertToken(bool selectDiff) {
