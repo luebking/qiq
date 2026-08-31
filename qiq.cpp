@@ -1275,6 +1275,8 @@ void Qiq::explicitlyComplete() {
         stripInstruction(lastCmd);
         filter(lastCmd, Begin);
         setCurrentWidget(m_list);
+        if (!insertToken(true))
+            filter(lastCmd, Fuzzy);
         insertToken(true);
     }
     cycleResults = true;
@@ -1454,8 +1456,8 @@ void Qiq::filter(const QString needle, MatchType matchType) {
         const bool filterDot = (m_list->model() == m_files) && !needle.startsWith('.');
         for (int i = 0; i < rows; ++i) {
             const QString hay = m_list->model()->index(i, 0, m_list->rootIndex()).data().toString();
-            const bool vis = !(filterDot && hay.startsWith('.')) &&
-                            levenshteinDistance(needle, hay.left(needle.size()+2), false) <= needle.size()/2 + 2;
+            const bool vis = !(filterDot && hay.startsWith('.')) && hay.at(0) == needle.at(0) && // assume that we got the first char right…
+                            levenshteinDistance(needle, hay.left(needle.size()+2), false) <= qMin(3,needle.length()/3) + qMin(2,hay.length()-needle.length());
             if (vis) {
                 m_lastVisibleRow = i;
                 if (firstVisRow < 0)
@@ -1622,6 +1624,9 @@ bool Qiq::insertToken(bool selectDiff) {
             newToken.remove('\r'); // zsh completions at times at least have that, probably to control the cursor
             newToken.remove('\t'); newToken.remove('\a'); // just for good measure
         }
+        if (newToken.isEmpty())
+            return false; // don't kill the users input
+    } else if (m_list->model() == m_bins) {
         if (newToken.isEmpty())
             return false; // don't kill the users input
     }
