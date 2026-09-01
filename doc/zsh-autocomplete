@@ -100,9 +100,10 @@ compadd () {
     # here, but it''s better than nothing.
     integer dirsuf=0
     # don''t be fooled by -default- >.>
-    if [[ -z $hsuf && "${${@//-default-/}% -# *}" == *-[[:alnum:]]#f* ]]; then
-        dirsuf=1
-    fi
+#    This is a massive performance killer and qiq does not use this to autocomplete paths anyway
+#    if [[ -z $hsuf && "${${@//-default-/}% -# *}" == *-[[:alnum:]]#f* ]]; then
+#        dirsuf=1
+#    fi
 
     # just drop
     [[ -n $__hits ]] || return
